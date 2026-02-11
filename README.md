@@ -1,6 +1,6 @@
-# OpenField Collect
+# HurkField (OpenField Collect)
 
-Portable, project‑aware field data collection with enumerator assignments, QA, and exports.
+Project-aware field data collection with assignments, QA, interviews, and exports.
 
 ## Quick start (dev)
 
@@ -12,6 +12,34 @@ Open:
 - Admin UI: `http://127.0.0.1:5000/ui`
 - Public form links: from Templates → Share
 
+## GitHub compatibility + hosting
+
+This project is now GitHub-ready:
+- `.gitignore` excludes local DB, `.env`, uploads/exports, and virtualenv files.
+- `Procfile` + `wsgi.py` support production app start.
+- `render.yaml` supports one-click deployment from a GitHub repo.
+- `.github/workflows/ci.yml` runs syntax checks on push/PR.
+
+Important:
+- **GitHub Pages cannot host Flask backends** (it only serves static files).
+- Use a Python host (Render/Railway/Fly/VM) connected to GitHub.
+
+### Recommended (Render + GitHub)
+
+1. Push this repo to GitHub.
+2. In Render, create **New > Blueprint** and select this repo.
+3. Render will use `render.yaml` automatically.
+4. Set required env vars in Render:
+   - `OPENFIELD_ADMIN_KEY`
+   - `OPENFIELD_CODE_SECRET`
+   - OAuth/SMTP/transcription keys (if needed)
+5. Deploy and open your Render URL.
+
+`render.yaml` stores data on a persistent disk:
+- DB: `/var/data/hurkfield.db`
+- Uploads: `/var/data/uploads`
+- Exports: `/var/data/exports`
+
 ## Install manually
 
 ```bash
@@ -19,6 +47,13 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python app.py
+```
+
+## Production run (generic)
+
+```bash
+source .venv/bin/activate
+gunicorn -c gunicorn.conf.py wsgi:app
 ```
 
 ## Configuration
@@ -141,6 +176,7 @@ Demo endpoint:
 
 - If `openfield.db` exists in the project root, it will be used by default.
 - For portability, set `OPENFIELD_DB_PATH=instance/openfield.db` in `.env`.
+- Never commit `.env` or local DB files to GitHub.
 
 ## Production deployment (Gunicorn + Nginx)
 

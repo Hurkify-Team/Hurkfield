@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: hurkfield
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -c gunicorn.conf.py wsgi:app
+    autoDeploy: true
+    envVars:
+      - key: OPENFIELD_ENV
+        value: production
+      - key: OPENFIELD_DEBUG
+        value: "0"
+      - key: OPENFIELD_DB_PATH
+        value: /var/data/hurkfield.db
+      - key: OPENFIELD_UPLOAD_DIR
+        value: /var/data/uploads
+      - key: OPENFIELD_EXPORT_DIR
+        value: /var/data/exports
+      - key: OPENFIELD_SECRET_KEY
+        generateValue: true
+    disk:
+      name: hurkfield-data
+      mountPath: /var/data
+      sizeGB: 1

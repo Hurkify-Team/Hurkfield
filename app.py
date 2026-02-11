@@ -13985,21 +13985,36 @@ def ui_project_assignments(project_id):
             sup_cov_ids = set()
 
     rows = []
+    total_done = 0
+    total_target = 0
+    templated_count = 0
+    supervised_count = 0
+    coded_count = 0
+    coverage_count = 0
     for a in assignments:
-        if not assignment_code_map.get(int(a.get("id") or 0)) and a.get("enumerator_id"):
+        assignment_id = int(a.get("id") or 0)
+        enum_id = int(a.get("enumerator_id") or 0) if a.get("enumerator_id") else None
+        if assignment_id and enum_id and not assignment_code_map.get(assignment_id):
             try:
-                gen = prj.ensure_assignment_code(int(project_id), int(a.get("enumerator_id")), int(a.get("id")))
+                gen = prj.ensure_assignment_code(int(project_id), int(enum_id), int(assignment_id))
                 if gen and gen.get("code_full"):
-                    assignment_code_map[int(a.get("id"))] = gen.get("code_full")
+                    assignment_code_map[int(assignment_id)] = gen.get("code_full")
             except Exception:
                 pass
         e = enum_map.get(a.get("enumerator_id"), {})
         n = node_map.get(a.get("coverage_node_id"), {})
         t = tpl_map.get(a.get("template_id"), {})
-        code_full = assignment_code_map.get(int(a.get("id"))) or "—"
+        code_full = assignment_code_map.get(int(a.get("id") or 0)) or "—"
         sup_name = ""
         if a.get("supervisor_id"):
             sup_name = (supervisor_map.get(int(a.get("supervisor_id"))) or {}).get("full_name") or ""
+            supervised_count += 1
+        if a.get("template_id"):
+            templated_count += 1
+        if a.get("coverage_node_id"):
+            coverage_count += 1
+        if code_full != "—":
+            coded_count += 1
         fac_list = []
         try:
             fac_list = enum.list_assignment_facilities(int(a.get("id")))
@@ -14008,6 +14023,9 @@ def ui_project_assignments(project_id):
         done_count = len([f for f in fac_list if (f.get("status") or "").upper() == "DONE"])
         total_count = len(fac_list)
         target_count = a.get("target_facilities_count") or (total_count if total_count else None)
+        target_for_total = int(target_count) if str(target_count).isdigit() else total_count
+        total_done += done_count
+        total_target += target_for_total
         share_link = ""
         if a.get("template_id"):
             token = ensure_share_token(int(a.get("template_id")))
@@ -14016,173 +14034,387 @@ def ui_project_assignments(project_id):
             else:
                 share_path = url_for("fill_form", token=token)
             share_link = f"{share_path}?assign_id={a.get('id')}"
+
+        e_name = html.escape(e.get("name") or "—")
+        n_name = html.escape(n.get("name") or "—")
+        t_name = html.escape(t.get("name") or "—")
+        sup_name_safe = html.escape(sup_name or "—")
+        code_safe = html.escape(code_full)
+        created_safe = html.escape(a.get("created_at") or "")
+        progress_display = f"{done_count}/{target_count if target_count is not None else total_count}"
+
         rows.append(
             f"""
             <tr>
               <td><span class="template-id">#{a.get('id')}</span></td>
-              <td>{e.get('name') or '—'}</td>
-              <td class="muted">{code_full}</td>
-              <td class="muted">{html.escape(sup_name or '—')}</td>
-              <td>{n.get('name') or '—'}</td>
-              <td>{t.get('name') or '—'}</td>
-              <td class="muted">{done_count}/{target_count if target_count is not None else total_count}</td>
-              <td class="muted">{a.get('created_at') or ''}</td>
+              <td>{e_name}</td>
+              <td class="muted">{code_safe}</td>
+              <td class="muted">{sup_name_safe}</td>
+              <td>{n_name}</td>
+              <td>{t_name}</td>
+              <td class="muted">{progress_display}</td>
+              <td class="muted">{created_safe}</td>
               <td>
-                {f"<a class='btn btn-sm' href='{share_link}'>Share</a>" if share_link else "<span class='muted'>—</span>"}
-                {f"<button class='btn btn-sm' type='button' data-copy='{code_full}'>Copy Code</button>" if code_full != '—' else ""}
-                {f"<a class='btn btn-sm' href='{url_for('ui_assignment_qr', assignment_id=a.get('id'))}{key_q}'>QR</a>" if code_full != '—' else ""}
-                <a class='btn btn-sm' href='{url_for('ui_assignment_facilities', project_id=project_id, assignment_id=a.get('id'))}{key_q}'>Facilities</a>
-                <form method="POST" style="display:inline">
-                  <input type="hidden" name="action" value="delete" />
-                  <input type="hidden" name="assignment_id" value="{a.get('id')}" />
-                  <input type="hidden" name="scheme_id" value="{scheme_id or ''}" />
-                  {"<input type='hidden' name='key' value='" + ADMIN_KEY + "' />" if ADMIN_KEY else ""}
-                  <button class="btn btn-sm" type="submit">Delete</button>
-                </form>
+                <div class="assign-actions">
+                  {f"<a class='btn btn-sm' href='{share_link}'>Share</a>" if share_link else "<span class='muted'>—</span>"}
+                  {f"<button class='btn btn-sm' type='button' data-copy='{code_safe}'>Copy</button>" if code_full != '—' else ""}
+                  {f"<a class='btn btn-sm' href='{url_for('ui_assignment_qr', assignment_id=a.get('id'))}{key_q}'>QR</a>" if code_full != '—' else ""}
+                  <a class='btn btn-sm' href='{url_for('ui_assignment_facilities', project_id=project_id, assignment_id=a.get('id'))}{key_q}'>Facilities</a>
+                  <form method="POST" style="display:inline">
+                    <input type="hidden" name="action" value="delete" />
+                    <input type="hidden" name="assignment_id" value="{a.get('id')}" />
+                    <input type="hidden" name="scheme_id" value="{scheme_id or ''}" />
+                    {"<input type='hidden' name='key' value='" + ADMIN_KEY + "' />" if ADMIN_KEY else ""}
+                    <button class="btn btn-sm" type="submit">Delete</button>
+                  </form>
+                </div>
               </td>
             </tr>
             """
         )
 
+    sup_cov_options = "".join(
+        [
+            f"<option value='{n['id']}' {'selected' if int(n['id']) in sup_cov_ids else ''}>{html.escape(n['name'])}</option>"
+            for n in nodes
+        ]
+    )
+    overall_progress = f"{total_done}/{total_target}" if total_target > 0 else "0/0"
+
     html_page = f"""
-    <div class="card" style="background: linear-gradient(135deg, var(--primary-soft), rgba(255,255,255,.92)); border:1px solid rgba(124,58,237,.25);">
-      <div class="row" style="justify-content:space-between; align-items:center; gap:14px;">
-        <div>
-          <div class="muted" style="font-weight:800; letter-spacing:.06em; text-transform:uppercase; font-size:11px; color:var(--primary);">Assignments</div>
-          <h1 class="h1" style="margin:6px 0 4px; font-size:24px;">{html.escape(project.get('name') or 'Project')}</h1>
-          <div class="muted" style="max-width:640px;">Assign enumerators to coverage areas, templates, and supervisors. Track progress and share field links.</div>
-        </div>
-        <div class="row" style="gap:10px; align-items:center;">
-          <a class="btn" href="{url_for('ui_project_detail', project_id=project_id)}{key_q}">Back to project</a>
-          <a class="btn btn-primary" href="{url_for('ui_project_enumerators', project_id=project_id)}{key_q}">Manage team</a>
-        </div>
-      </div>
-    </div>
+    <style>
+      .assign-page {{
+        min-height: 100vh;
+        background:
+          radial-gradient(980px 430px at -8% -20%, rgba(124,58,237,.13), transparent 62%),
+          radial-gradient(820px 340px at 108% -12%, rgba(139,92,246,.11), transparent 58%),
+          linear-gradient(180deg, #f8f6ff 0%, #f3f4f8 100%);
+        padding: 20px 0 34px;
+      }}
+      html[data-theme="dark"] .assign-page {{
+        background:
+          radial-gradient(980px 430px at -8% -20%, rgba(124,58,237,.25), transparent 62%),
+          radial-gradient(820px 340px at 108% -12%, rgba(139,92,246,.2), transparent 58%),
+          linear-gradient(180deg, #0f1221 0%, #11162a 100%);
+      }}
+      .assign-shell {{
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 16px;
+        display: grid;
+        gap: 14px;
+      }}
+      .assign-hero {{
+        border: 1px solid rgba(124,58,237,.28);
+        border-radius: 22px;
+        padding: 18px;
+        background: linear-gradient(125deg, rgba(124,58,237,.18) 0%, rgba(255,255,255,.97) 46%, rgba(224,231,255,.62) 100%);
+        box-shadow: 0 16px 36px rgba(15,18,34,.1);
+      }}
+      html[data-theme="dark"] .assign-hero {{
+        background: linear-gradient(125deg, rgba(124,58,237,.38) 0%, rgba(21,24,44,.95) 46%, rgba(35,40,71,.9) 100%);
+        border-color: rgba(167,139,250,.35);
+      }}
+      .assign-hero-row {{
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+      }}
+      .assign-kicker {{
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(124,58,237,.14);
+        color: var(--primary);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+      }}
+      .assign-title {{
+        margin: 10px 0 4px;
+        font-size: 30px;
+        font-weight: 900;
+        letter-spacing: -.02em;
+        color: #111827;
+      }}
+      html[data-theme="dark"] .assign-title {{ color: #f8fafc; }}
+      .assign-desc {{
+        font-size: 14px;
+        color: #475569;
+        max-width: 760px;
+      }}
+      html[data-theme="dark"] .assign-desc {{ color: #cbd5e1; }}
+      .assign-card {{
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: 0 12px 28px rgba(15,18,34,.06);
+      }}
+      .assign-kpi-grid {{
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
+      }}
+      .assign-kpi-card {{
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: 16px;
+        padding: 14px;
+        box-shadow: 0 10px 24px rgba(15,18,34,.06);
+      }}
+      .assign-kpi-label {{ font-size: 12px; color: var(--muted); }}
+      .assign-kpi-value {{ font-size: 24px; font-weight: 900; margin-top: 2px; }}
+      .assign-tip {{
+        border: 1px solid rgba(124,58,237,.22);
+        background: linear-gradient(180deg, rgba(124,58,237,.08) 0%, rgba(124,58,237,.04) 100%);
+        color: var(--text);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 13px;
+        margin-bottom: 12px;
+      }}
+      .assign-grid-3 {{
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }}
+      .assign-grid-2 {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }}
+      .assign-field label {{
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }}
+      .assign-field select,
+      .assign-field input:not([type="hidden"]),
+      .assign-field textarea {{
+        width: 100%;
+        border: 1px solid rgba(124,58,237,.24);
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff 0%, #f7f7fb 100%);
+        color: var(--text);
+        padding: 11px 12px;
+        font-size: 14px;
+        transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      }}
+      html[data-theme="dark"] .assign-field select,
+      html[data-theme="dark"] .assign-field input:not([type="hidden"]),
+      html[data-theme="dark"] .assign-field textarea {{
+        background: linear-gradient(180deg, rgba(30,41,59,.92) 0%, rgba(17,24,39,.92) 100%);
+        border-color: rgba(167,139,250,.3);
+        color: #e5e7eb;
+      }}
+      .assign-field input:not([type="hidden"])::placeholder,
+      .assign-field textarea::placeholder {{
+        color: #9aa4b2;
+      }}
+      .assign-field select:focus,
+      .assign-field input:not([type="hidden"]):focus,
+      .assign-field textarea:focus {{
+        outline: none;
+        border-color: rgba(124,58,237,.72);
+        box-shadow: 0 0 0 4px rgba(124,58,237,.14);
+      }}
+      .assign-field input:not([type="hidden"]):disabled {{
+        opacity: .88;
+        cursor: not-allowed;
+      }}
+      .assign-alert-success {{
+        border: 1px solid rgba(34,197,94,.35);
+        background: rgba(240,253,244,.85);
+        color: #166534;
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 13px;
+      }}
+      .assign-alert-error {{
+        border: 1px solid rgba(239,68,68,.35);
+        background: rgba(254,242,242,.88);
+        color: #991b1b;
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 13px;
+      }}
+      .assign-actions {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }}
+      @media (max-width: 980px) {{
+        .assign-hero-row {{ flex-direction: column; }}
+        .assign-title {{ font-size: 26px; }}
+        .assign-grid-3,
+        .assign-grid-2 {{ grid-template-columns: 1fr; }}
+      }}
+    </style>
 
-    {"<div class='card' style='border-color: rgba(46, 204, 113, .35)'><b>Success:</b> " + msg + "</div>" if msg else ""}
-    {"<div class='card' style='border-color: rgba(231, 76, 60, .35)'><b>Error:</b> " + err + "</div>" if err else ""}
+    <div class="assign-page">
+      <div class="assign-shell">
+        <section class="assign-hero">
+          <div class="assign-hero-row">
+            <div>
+              <div class="assign-kicker">Assignment ops</div>
+              <h1 class="assign-title">Assignments — {html.escape(project.get('name') or 'Project')}</h1>
+              <div class="assign-desc">Map enumerators to templates, coverage nodes, and supervisors. Share links instantly and track delivery in one place.</div>
+            </div>
+            <div class="row" style="gap:10px; align-items:center;">
+              <a class="btn" href="{url_for('ui_project_detail', project_id=project_id)}{key_q}">Back to project</a>
+              <a class="btn btn-primary" href="{url_for('ui_project_enumerators', project_id=project_id)}{key_q}">Manage team</a>
+            </div>
+          </div>
+        </section>
 
-    <div class="card" style="margin-top:16px">
-      <div class="info-tip" style="margin-bottom:12px">
-        <span class="tip-icon">💡</span>
-        <span>Leave Template empty to allow the enumerator to use any form in this project.</span>
-      </div>
-      <h3 style="margin-top:0">Create assignment</h3>
-      <form method="POST" class="stack">
-        <div class="row" style="gap:16px">
-          <div style="flex:1">
-            <label style="font-weight:800">Enumerator</label>
-            <select name="enumerator_id">
-              {enum_opts}
-            </select>
-          </div>
-          <div style="flex:1">
-            <label style="font-weight:800">Supervisor</label>
-            {(
-              f"<input value='{html.escape((sup_ctx.get('full_name') or '').strip())}' disabled /><input type='hidden' name='supervisor_id' value='{sup_id}' />"
-              if (sup_id and sup_ctx)
-              else f"<select name='supervisor_id'>{supervisor_opts}</select>"
-            )}
-          </div>
-          <div style="flex:1">
-            <label style="font-weight:800">Template</label>
-            <select name="template_id">
-              {tpl_opts}
-            </select>
-          </div>
-        </div>
-        <div class="row" style="gap:16px">
-          <div style="flex:1">
-            <label style="font-weight:800">Coverage scheme</label>
-            <select name="scheme_id_picker" onchange="window.location='?scheme_id=' + this.value + '{scheme_key_q}'">
-              {scheme_opts}
-            </select>
-          </div>
-          <div style="flex:1">
-            <label style="font-weight:800">Coverage node</label>
-            <select name="coverage_node_id">
-              {node_opts}
-            </select>
-          </div>
-        </div>
-        <div class="row" style="gap:16px">
-          <div style="flex:1">
-            <label style="font-weight:800">Coverage nodes (multi‑select)</label>
-            <select name="coverage_node_ids" multiple size="4">
-              {node_opts}
-            </select>
-            <div class="muted" style="margin-top:6px">Optional: select multiple LGAs for the enumerator.</div>
-          </div>
-          <div style="flex:1; padding-top:26px" class="muted">
-            Primary coverage will default to the first selected node.
-          </div>
-        </div>
-        <div class="row" style="gap:16px">
-          <div style="flex:1">
-            <label style="font-weight:800">Target facilities</label>
-            <input name="target_facilities_count" type="number" min="0" placeholder="e.g., 8" />
-          </div>
-          <div style="flex:1; padding-top:26px" class="muted">
-            Optional. Used for progress tracking.
-          </div>
-        </div>
-        <div class="row" style="gap:16px">
-          <div style="flex:1">
-            <label style="font-weight:800">Facility list (optional)</label>
-            <textarea name="facility_names" rows="4" placeholder="Add facility names (one per line or comma-separated)"></textarea>
-          </div>
-          <div style="flex:1; padding-top:26px" class="muted">
-            Add facilities now or later via the Facilities button.
-          </div>
-        </div>
-        <input type="hidden" name="scheme_id" value="{scheme_id or ''}" />
-        <button class="btn btn-primary" type="submit">Assign</button>
-      </form>
-    </div>
+        {"<div class='assign-alert-success'><b>Success:</b> " + html.escape(msg) + "</div>" if msg else ""}
+        {"<div class='assign-alert-error'><b>Error:</b> " + html.escape(err) + "</div>" if err else ""}
 
-    {(
-      f"""
-      <div class="card" style="margin-top:16px">
-        <h3 style="margin-top:0">Supervisor coverage</h3>
-        <div class="muted">Assign one supervisor to multiple LGAs (coverage nodes).</div>
-        <form method="POST" class="stack" style="margin-top:10px">
-          <input type="hidden" name="action" value="assign_supervisor_coverage" />
-          <input type="hidden" name="supervisor_id" value="{sup_id}" />
-          <label style="font-weight:800">Coverage nodes</label>
-          <select name="supervisor_coverage_node_ids" multiple size="6">
-            {''.join([f"<option value='{n['id']}' {'selected' if int(n['id']) in sup_cov_ids else ''}>{n['name']}</option>" for n in nodes])}
-          </select>
-          <div class="muted" style="margin-top:6px">Hold Cmd/Ctrl to select multiple LGAs.</div>
-          <button class="btn btn-primary" type="submit">Save supervisor coverage</button>
-        </form>
-      </div>
-      """
-      if sup_id else ""
-    )}
+        <section class="assign-kpi-grid">
+          <div class="assign-kpi-card">
+            <div class="assign-kpi-label">Total assignments</div>
+            <div class="assign-kpi-value">{len(assignments)}</div>
+          </div>
+          <div class="assign-kpi-card">
+            <div class="assign-kpi-label">With supervisor</div>
+            <div class="assign-kpi-value">{supervised_count}</div>
+          </div>
+          <div class="assign-kpi-card">
+            <div class="assign-kpi-label">With template</div>
+            <div class="assign-kpi-value">{templated_count}</div>
+          </div>
+          <div class="assign-kpi-card">
+            <div class="assign-kpi-label">With assignment code</div>
+            <div class="assign-kpi-value">{coded_count}</div>
+          </div>
+          <div class="assign-kpi-card">
+            <div class="assign-kpi-label">Coverage linked</div>
+            <div class="assign-kpi-value">{coverage_count}</div>
+          </div>
+          <div class="assign-kpi-card">
+            <div class="assign-kpi-label">Facility progress</div>
+            <div class="assign-kpi-value">{overall_progress}</div>
+          </div>
+        </section>
 
-    <div class="card" style="margin-top:16px">
-      <div class="info-tip" style="margin-bottom:12px">
-        <span class="tip-icon">💡</span>
-        <span>Use Share to send the exact assignment link to the enumerator.</span>
+        <section class="assign-card">
+          <div class="assign-tip"><b>Tip:</b> Leave Template empty to allow the enumerator to use any form in this project.</div>
+          <h3 style="margin:0 0 12px">Create assignment</h3>
+          <form method="POST" class="stack">
+            <div class="assign-grid-3">
+              <div class="assign-field">
+                <label>Enumerator</label>
+                <select name="enumerator_id">
+                  {enum_opts}
+                </select>
+              </div>
+              <div class="assign-field">
+                <label>Supervisor</label>
+                {(
+                  f"<input value='{html.escape((sup_ctx.get('full_name') or '').strip())}' disabled /><input type='hidden' name='supervisor_id' value='{sup_id}' />"
+                  if (sup_id and sup_ctx)
+                  else f"<select name='supervisor_id'>{supervisor_opts}</select>"
+                )}
+              </div>
+              <div class="assign-field">
+                <label>Template</label>
+                <select name="template_id">
+                  {tpl_opts}
+                </select>
+              </div>
+            </div>
+            <div class="assign-grid-2">
+              <div class="assign-field">
+                <label>Coverage scheme</label>
+                <select name="scheme_id_picker" onchange="window.location='?scheme_id=' + this.value + '{scheme_key_q}'">
+                  {scheme_opts}
+                </select>
+              </div>
+              <div class="assign-field">
+                <label>Primary coverage node</label>
+                <select name="coverage_node_id">
+                  {node_opts}
+                </select>
+              </div>
+            </div>
+            <div class="assign-grid-2">
+              <div class="assign-field">
+                <label>Coverage nodes (multi-select)</label>
+                <select name="coverage_node_ids" multiple size="5">
+                  {node_opts}
+                </select>
+                <div class="muted" style="margin-top:6px">Optional: choose multiple LGAs/areas. The first selected becomes primary.</div>
+              </div>
+              <div class="assign-field">
+                <label>Target facilities</label>
+                <input name="target_facilities_count" type="number" min="0" placeholder="e.g., 8" />
+                <div class="muted" style="margin-top:6px">Optional. Used for progress and delivery tracking.</div>
+              </div>
+            </div>
+            <div class="assign-field">
+              <label>Facility list (optional)</label>
+              <textarea name="facility_names" rows="4" placeholder="Add facility names (one per line or comma-separated)"></textarea>
+              <div class="muted" style="margin-top:6px">You can also assign facilities later from the Facilities button in the table.</div>
+            </div>
+            <input type="hidden" name="scheme_id" value="{scheme_id or ''}" />
+            <button class="btn btn-primary" type="submit">Assign</button>
+          </form>
+        </section>
+
+        {(
+          f"""
+          <section class="assign-card">
+            <h3 style="margin:0 0 8px">Supervisor coverage</h3>
+            <div class="assign-tip" style="margin-bottom:10px">Assign this supervisor to one or more coverage nodes so their scope is explicit.</div>
+            <form method="POST" class="stack">
+              <input type="hidden" name="action" value="assign_supervisor_coverage" />
+              <input type="hidden" name="supervisor_id" value="{sup_id}" />
+              <div class="assign-field">
+                <label>Coverage nodes</label>
+                <select name="supervisor_coverage_node_ids" multiple size="8">
+                  {sup_cov_options}
+                </select>
+                <div class="muted" style="margin-top:6px">Hold Cmd/Ctrl to select multiple LGAs.</div>
+              </div>
+              <button class="btn btn-primary" type="submit">Save supervisor coverage</button>
+            </form>
+          </section>
+          """
+          if sup_id else ""
+        )}
+
+        <section class="assign-card">
+          <div class="assign-tip"><b>Tip:</b> Use <b>Share</b> to send the exact assignment link, then copy code or QR for field onboarding.</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width:90px">ID</th>
+                <th>Enumerator</th>
+                <th style="width:200px">Assignment code</th>
+                <th style="width:160px">Supervisor</th>
+                <th>Coverage node</th>
+                <th>Template</th>
+                <th style="width:140px">Progress</th>
+                <th style="width:180px">Created</th>
+                <th style="width:240px">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {("".join(rows) if rows else "<tr><td colspan='9' class='muted' style='padding:18px'>No assignments yet.</td></tr>")}
+            </tbody>
+          </table>
+        </section>
       </div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th style="width:90px">ID</th>
-            <th>Enumerator</th>
-            <th style="width:200px">Assignment code</th>
-            <th style="width:160px">Supervisor</th>
-            <th>Coverage node</th>
-            <th>Template</th>
-            <th style="width:140px">Progress</th>
-            <th style="width:180px">Created</th>
-            <th style="width:220px">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {("".join(rows) if rows else "<tr><td colspan='9' class='muted' style='padding:18px'>No assignments yet.</td></tr>")}
-        </tbody>
-      </table>
     </div>
     <script>
       (function(){{
@@ -14195,11 +14427,11 @@ def ui_project_assignments(project_id):
               await navigator.clipboard.writeText(text);
               const prev = btn.innerText;
               btn.innerText = "Copied";
-              setTimeout(()=>btn.innerText=prev || "Copy Code", 1200);
+              setTimeout(()=>btn.innerText=prev || "Copy", 1200);
             }}catch(e){{
               const prev = btn.innerText;
               btn.innerText = "Copy failed";
-              setTimeout(()=>btn.innerText=prev || "Copy Code", 1200);
+              setTimeout(()=>btn.innerText=prev || "Copy", 1200);
             }}
           }});
         }});

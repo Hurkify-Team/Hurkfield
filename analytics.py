@@ -840,11 +840,109 @@ def render_project_analytics(project: Dict[str, Any], admin_key: str, args: Mapp
         .ana-sidebar{{min-height:auto}}
         .activity-grid{{grid-template-columns:1fr}}
       }}
+
+      /* Premium refinement layer */
+      .ana-shell{{
+        max-width:1300px;
+        margin:0 auto;
+        padding:16px 14px 28px;
+      }}
+      .ana-sidebar{{
+        position:sticky;
+        top:14px;
+        align-self:start;
+        backdrop-filter:blur(8px);
+      }}
+      .ana-brand{{
+        letter-spacing:.02em;
+        display:flex;
+        align-items:center;
+        gap:8px;
+      }}
+      .ana-nav a{{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        transition:all .18s ease;
+      }}
+      .ana-nav a:hover{{
+        transform:translateY(-1px);
+        border-color:rgba(124,58,237,.3);
+        box-shadow:0 10px 24px rgba(124,58,237,.12);
+      }}
+      .ana-topbar{{
+        background:linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.84));
+        backdrop-filter:blur(10px);
+      }}
+      .ana-search{{
+        background:linear-gradient(180deg, rgba(124,58,237,.09), rgba(124,58,237,.05));
+      }}
+      .ana-search input::placeholder{{color:#9ca3af}}
+      .ana-select{{
+        background:linear-gradient(180deg, rgba(124,58,237,.08), rgba(124,58,237,.05));
+      }}
+      .ana-hero{{
+        border-radius:22px;
+        padding:22px;
+        box-shadow:0 20px 44px rgba(15,18,34,.11);
+      }}
+      .ana-title{{line-height:1.05}}
+      .ana-card, .card, .ring-card{{
+        border-radius:16px;
+      }}
+      .table tbody tr{{
+        transition:background .16s ease;
+      }}
+      .table tbody tr:hover{{
+        background:rgba(124,58,237,.055);
+      }}
+      .ana-filters select,
+      .ana-filters input[type="date"],
+      .ana-filters input[type="text"]{{
+        border:1px solid rgba(124,58,237,.24);
+        border-radius:12px;
+        background:linear-gradient(180deg, #ffffff 0%, #f7f7fb 100%);
+        color:#111827;
+        padding:10px 12px;
+        font-size:14px;
+        transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      }}
+      .ana-filters select:focus,
+      .ana-filters input[type="date"]:focus,
+      .ana-filters input[type="text"]:focus{{
+        outline:none;
+        border-color:rgba(124,58,237,.72);
+        box-shadow:0 0 0 4px rgba(124,58,237,.14);
+      }}
+      .activity-item b{{font-variant-numeric:tabular-nums}}
+      html[data-theme="dark"] .ana-topbar{{
+        background:linear-gradient(180deg, rgba(29,19,52,.92), rgba(14,9,30,.95));
+      }}
+      html[data-theme="dark"] .ana-search,
+      html[data-theme="dark"] .ana-select{{
+        background:linear-gradient(180deg, rgba(139,92,246,.16), rgba(139,92,246,.1));
+      }}
+      html[data-theme="dark"] .table tbody tr:hover{{
+        background:rgba(139,92,246,.12);
+      }}
+      html[data-theme="dark"] .ana-filters select,
+      html[data-theme="dark"] .ana-filters input[type="date"],
+      html[data-theme="dark"] .ana-filters input[type="text"]{{
+        background:linear-gradient(180deg, rgba(30,41,59,.92) 0%, rgba(17,24,39,.92) 100%);
+        border-color:rgba(167,139,250,.3);
+        color:#e5e7eb;
+      }}
+      html[data-theme="dark"] .ana-filters select:focus,
+      html[data-theme="dark"] .ana-filters input[type="date"]:focus,
+      html[data-theme="dark"] .ana-filters input[type="text"]:focus{{
+        border-color:rgba(167,139,250,.8);
+        box-shadow:0 0 0 4px rgba(139,92,246,.18);
+      }}
     </style>
 
     <div class="ana-shell">
       <aside class="ana-sidebar">
-        <div class="ana-brand">Dashboard</div>
+        <div class="ana-brand">HurkField Analytics</div>
         <div class="ana-nav">
           <a href="/{key_q}">Home</a>
           <a class="active" href="/ui/analytics{key_q}">Analytics</a>
@@ -885,7 +983,7 @@ def render_project_analytics(project: Dict[str, Any], admin_key: str, args: Mapp
           </div>
         </div>
 
-        <div class="ana-breadcrumb">Dashboard / Home</div>
+        <div class="ana-breadcrumb">Project Intelligence / Analytics</div>
 
         <div class="ana-hero">
           <div class="row" style="justify-content:space-between; align-items:center;">
