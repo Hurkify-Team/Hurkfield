@@ -1,0 +1,30 @@
+[
+  {
+    "facility_name": "Rejuva Clinic",
+    "facility_type": "Clinic",
+    "ownership": "Private",
+    "catchment_population": 12000,
+    "total_clinical_staff": 5,
+    "total_non_clinical_staff": 3,
+    "licensed_clinician_on_site": "Yes",
+    "drug_stock_available": "Yes",
+    "basic_lab_available": "No",
+    "electricity_available": "Yes",
+    "water_available": "Yes",
+    "notes": "Short on lab reagents"
+  },
+  {
+    "facility_name": "Mainland PHC",
+    "facility_type": "PHC",
+    "ownership": "Public",
+    "catchment_population": 34000,
+    "total_clinical_staff": 12,
+    "total_non_clinical_staff": 7,
+    "licensed_clinician_on_site": "Yes",
+    "drug_stock_available": "No",
+    "basic_lab_available": "Yes",
+    "electricity_available": "Yes",
+    "water_available": "No",
+    "notes": "Generator only"
+  }
+]

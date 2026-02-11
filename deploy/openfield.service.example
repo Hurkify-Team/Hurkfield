@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenField Collect
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/openfield
+Environment=OPENFIELD_ENV=production
+Environment=OPENFIELD_DEBUG=0
+ExecStart=/opt/openfield/.venv/bin/gunicorn -c /opt/openfield/gunicorn.conf.py wsgi:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

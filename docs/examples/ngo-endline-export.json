@@ -1,0 +1,32 @@
+[
+  {
+    "respondent_name": "Amina Yusuf",
+    "respondent_age": 34,
+    "respondent_gender": "Female",
+    "household_size": 6,
+    "primary_livelihood": "Farming",
+    "access_to_clean_water": "Yes",
+    "main_water_source": "Borehole",
+    "children_in_school": "Yes",
+    "health_facility_within_5km": "Yes",
+    "monthly_income_range": "150-300",
+    "improvement": "Clean water access improved",
+    "challenge": "School fees still high",
+    "enumerator_observations": "Community taps added"
+  },
+  {
+    "respondent_name": "John Okoro",
+    "respondent_age": 41,
+    "respondent_gender": "Male",
+    "household_size": 4,
+    "primary_livelihood": "Trade",
+    "access_to_clean_water": "No",
+    "main_water_source": "River",
+    "children_in_school": "Yes",
+    "health_facility_within_5km": "Yes",
+    "monthly_income_range": "150-300",
+    "improvement": "Clinic outreach increased",
+    "challenge": "Water source remains unsafe",
+    "enumerator_observations": "Needs follow-up visit"
+  }
+]

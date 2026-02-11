@@ -1,0 +1,22 @@
+[
+  {
+    "participant_code": "P-102",
+    "respondent_age": 22,
+    "education_level": "Tertiary",
+    "employment_status": "Student",
+    "primary_outcome": "Nutrition score improved",
+    "secondary_outcome": "Reported higher energy",
+    "follow_up_needed": "No",
+    "researcher_notes": "Participant requested summary of results"
+  },
+  {
+    "participant_code": "P-205",
+    "respondent_age": 45,
+    "education_level": "Secondary",
+    "employment_status": "Employed",
+    "primary_outcome": "Access to clinic reduced wait times",
+    "secondary_outcome": "Medication adherence improved",
+    "follow_up_needed": "Yes",
+    "researcher_notes": "Schedule follow-up in 2 weeks"
+  }
+]

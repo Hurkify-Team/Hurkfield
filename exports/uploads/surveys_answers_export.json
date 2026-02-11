@@ -1,0 +1,526 @@
+{
+  "exported_at": "2026-01-19T14:18:30",
+  "surveys": [
+    {
+      "survey_id": 12,
+      "facility_id": 3,
+      "facility_name": "First City Hospital",
+      "template_id": 6,
+      "survey_type": "Facility Inspection",
+      "enumerator_name": "Olamide",
+      "enumerator_code": "LG-1234",
+      "status": "COMPLETED",
+      "created_at": "2026-01-19T12:55:05",
+      "completed_at": "2026-01-19T12:55:05",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": [
+        {
+          "answer_id": 14,
+          "template_question_id": 28,
+          "question": "Facility Type",
+          "answer": "Hospital",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 15,
+          "template_question_id": 29,
+          "question": "Is the facility currently operational?",
+          "answer": "Yes",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 16,
+          "template_question_id": 30,
+          "question": "Ownership Type",
+          "answer": "Private",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 17,
+          "template_question_id": 31,
+          "question": "Number of clinical staff on duty today",
+          "answer": "5",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 18,
+          "template_question_id": 32,
+          "question": "Number of non-clinical staff on duty today",
+          "answer": "3",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 19,
+          "template_question_id": 33,
+          "question": "Does the facility have 24-hour electricity?",
+          "answer": "Yes",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 20,
+          "template_question_id": 34,
+          "question": "Primary source of electricity",
+          "answer": "Generator",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 21,
+          "template_question_id": 35,
+          "question": "Is potable water available on-site?",
+          "answer": "Yes",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 22,
+          "template_question_id": 36,
+          "question": "Main services provided",
+          "answer": "Outpatient",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 23,
+          "template_question_id": 37,
+          "question": "Does the facility experience stock-outs of essential drugs?",
+          "answer": "Sometimes",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 24,
+          "template_question_id": 38,
+          "question": "Biggest operational challenge faced by the facility",
+          "answer": "electricity shortage",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        },
+        {
+          "answer_id": 25,
+          "template_question_id": 39,
+          "question": "Date of assessment",
+          "answer": "12/01/2026",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-19T12:55:05"
+        }
+      ]
+    },
+    {
+      "survey_id": 11,
+      "facility_id": 3,
+      "facility_name": "First City Hospital",
+      "template_id": 5,
+      "survey_type": "Facilities Assessment",
+      "enumerator_name": "Olamide",
+      "enumerator_code": "LG-123",
+      "status": "COMPLETED",
+      "created_at": "2026-01-18T17:19:07",
+      "completed_at": "2026-01-18T17:19:07",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": []
+    },
+    {
+      "survey_id": 10,
+      "facility_id": 3,
+      "facility_name": "First City Hospital",
+      "template_id": 5,
+      "survey_type": "Facilities Assessment",
+      "enumerator_name": "Olamide",
+      "enumerator_code": "LG-123",
+      "status": "COMPLETED",
+      "created_at": "2026-01-18T17:17:25",
+      "completed_at": "2026-01-18T17:17:25",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": []
+    },
+    {
+      "survey_id": 9,
+      "facility_id": 2,
+      "facility_name": "Victoria Abayomi Maternity Home",
+      "template_id": 5,
+      "survey_type": "Facilities Assessment",
+      "enumerator_name": "Olamide",
+      "enumerator_code": "LG-123",
+      "status": "COMPLETED",
+      "created_at": "2026-01-18T17:17:05",
+      "completed_at": "2026-01-18T17:17:05",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": []
+    },
+    {
+      "survey_id": 8,
+      "facility_id": 3,
+      "facility_name": "First City Hospital",
+      "template_id": 5,
+      "survey_type": "Facilities Assessment",
+      "enumerator_name": "Olamide",
+      "enumerator_code": "LG-123",
+      "status": "COMPLETED",
+      "created_at": "2026-01-18T17:12:52",
+      "completed_at": "2026-01-18T17:12:52",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": []
+    },
+    {
+      "survey_id": 7,
+      "facility_id": 3,
+      "facility_name": "First City Hospital",
+      "template_id": 5,
+      "survey_type": "Facilities Assessment",
+      "enumerator_name": "Olamide",
+      "enumerator_code": "LG-123",
+      "status": "COMPLETED",
+      "created_at": "2026-01-18T16:18:32",
+      "completed_at": "2026-01-18T16:18:32",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": [
+        {
+          "answer_id": 13,
+          "template_question_id": 15,
+          "question": "What is the name of the facility",
+          "answer": "First City Hospital",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-18T16:18:32"
+        }
+      ]
+    },
+    {
+      "survey_id": 6,
+      "facility_id": 2,
+      "facility_name": "Victoria Abayomi Maternity Home",
+      "template_id": 5,
+      "survey_type": "Facilities Assessment",
+      "enumerator_name": "Olamide",
+      "enumerator_code": "112233",
+      "status": "COMPLETED",
+      "created_at": "2026-01-18T15:06:22",
+      "completed_at": "2026-01-18T15:06:22",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": []
+    },
+    {
+      "survey_id": 5,
+      "facility_id": 1,
+      "facility_name": "Rejuva",
+      "template_id": 1,
+      "survey_type": "Facility Assessment Test Survey",
+      "enumerator_name": "Olamide",
+      "enumerator_code": null,
+      "status": "DRAFT",
+      "created_at": "2026-01-17T10:48:33",
+      "completed_at": "",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": [
+        {
+          "answer_id": 11,
+          "template_question_id": 1,
+          "question": "Survey Title:",
+          "answer": "Texting Survey",
+          "answer_source": "INTERVIEW",
+          "confidence_level": "HIGH",
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-17T10:49:28"
+        },
+        {
+          "answer_id": 12,
+          "template_question_id": 2,
+          "question": "Survey Title",
+          "answer": "Testing",
+          "answer_source": "OBSERVATION",
+          "confidence_level": "HIGH",
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-17T10:49:37"
+        }
+      ]
+    },
+    {
+      "survey_id": 4,
+      "facility_id": 1,
+      "facility_name": "Rejuva",
+      "template_id": null,
+      "survey_type": "Manual Survey",
+      "enumerator_name": "Olamide",
+      "enumerator_code": null,
+      "status": "DRAFT",
+      "created_at": "2026-01-15T22:51:02",
+      "completed_at": "",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": []
+    },
+    {
+      "survey_id": 3,
+      "facility_id": 1,
+      "facility_name": "Rejuva",
+      "template_id": 1,
+      "survey_type": "Facility Assessment Test Survey",
+      "enumerator_name": "Olamide",
+      "enumerator_code": null,
+      "status": "DRAFT",
+      "created_at": "2026-01-15T21:57:52",
+      "completed_at": "",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": [
+        {
+          "answer_id": 9,
+          "template_question_id": 1,
+          "question": "Survey Title:",
+          "answer": "facility Assessment",
+          "answer_source": "INTERVIEW",
+          "confidence_level": "HIGH",
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        },
+        {
+          "answer_id": 10,
+          "template_question_id": 2,
+          "question": "Survey Title",
+          "answer": "Facility Assessment",
+          "answer_source": "RECORD",
+          "confidence_level": "MEDIUM",
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        }
+      ]
+    },
+    {
+      "survey_id": 2,
+      "facility_id": 2,
+      "facility_name": "Victoria Abayomi Maternity Home",
+      "template_id": null,
+      "survey_type": "Assessment",
+      "enumerator_name": "Sobowale",
+      "enumerator_code": null,
+      "status": "COMPLETED",
+      "created_at": "2026-01-15T21:31:27",
+      "completed_at": "",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": [
+        {
+          "answer_id": 3,
+          "template_question_id": null,
+          "question": "Survey Title:",
+          "answer": "Facility Assessment",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        },
+        {
+          "answer_id": 4,
+          "template_question_id": null,
+          "question": "Enumerator Name:",
+          "answer": "Sobowale",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        },
+        {
+          "answer_id": 5,
+          "template_question_id": null,
+          "question": "Facility ID: 2",
+          "answer": "2",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        },
+        {
+          "answer_id": 6,
+          "template_question_id": null,
+          "question": "date",
+          "answer": "11/01/2026",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        },
+        {
+          "answer_id": 7,
+          "template_question_id": null,
+          "question": "Facility Type:",
+          "answer": "Hospital",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        },
+        {
+          "answer_id": 8,
+          "template_question_id": null,
+          "question": "is the facility currently operational",
+          "answer": "Yes",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        }
+      ]
+    },
+    {
+      "survey_id": 1,
+      "facility_id": 1,
+      "facility_name": "Rejuva",
+      "template_id": null,
+      "survey_type": "facility assessment",
+      "enumerator_name": "olamide",
+      "enumerator_code": null,
+      "status": "COMPLETED",
+      "created_at": "2026-01-15T18:51:20",
+      "completed_at": "",
+      "gps": {
+        "lat": null,
+        "lng": null,
+        "accuracy": null,
+        "timestamp": null
+      },
+      "coverage_node_id": null,
+      "answers": [
+        {
+          "answer_id": 1,
+          "template_question_id": null,
+          "question": "how long have you been running this facility",
+          "answer": "5years",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        },
+        {
+          "answer_id": 2,
+          "template_question_id": null,
+          "question": "what is your biggest challenge so far",
+          "answer": "quackery",
+          "answer_source": null,
+          "confidence_level": null,
+          "is_missing": 0,
+          "missing_reason": null,
+          "created_at": "2026-01-16T08:39:54"
+        }
+      ]
+    }
+  ]
+}

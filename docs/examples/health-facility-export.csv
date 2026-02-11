@@ -1,0 +1,3 @@
+facility_name,facility_type,ownership,catchment_population,total_clinical_staff,total_non_clinical_staff,licensed_clinician_on_site,drug_stock_available,basic_lab_available,electricity_available,water_available,notes
+Rejuva Clinic,Clinic,Private,12000,5,3,Yes,Yes,No,Yes,Yes,Short on lab reagents
+Mainland PHC,PHC,Public,34000,12,7,Yes,No,Yes,Yes,No,Generator only
