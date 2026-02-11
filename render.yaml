@@ -4,22 +4,21 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -c gunicorn.conf.py wsgi:app
+    # Render requires binding to 0.0.0.0:$PORT
+    startCommand: gunicorn --bind 0.0.0.0:$PORT -c gunicorn.conf.py wsgi:app
     autoDeploy: true
     envVars:
       - key: OPENFIELD_ENV
         value: production
       - key: OPENFIELD_DEBUG
         value: "0"
+      - key: OPENFIELD_HOST
+        value: 0.0.0.0
       - key: OPENFIELD_DB_PATH
-        value: /var/data/hurkfield.db
+        value: instance/hurkfield.db
       - key: OPENFIELD_UPLOAD_DIR
-        value: /var/data/uploads
+        value: uploads
       - key: OPENFIELD_EXPORT_DIR
-        value: /var/data/exports
+        value: exports
       - key: OPENFIELD_SECRET_KEY
         generateValue: true
-    disk:
-      name: hurkfield-data
-      mountPath: /var/data
-      sizeGB: 1
