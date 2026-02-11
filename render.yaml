@@ -14,11 +14,13 @@ services:
         value: "0"
       - key: OPENFIELD_HOST
         value: 0.0.0.0
+      # Free plan: use writable ephemeral storage under /tmp.
+      # (Data resets on redeploy/restart.)
       - key: OPENFIELD_DB_PATH
-        value: instance/hurkfield.db
+        value: /tmp/hurkfield.db
       - key: OPENFIELD_UPLOAD_DIR
-        value: uploads
+        value: /tmp/uploads
       - key: OPENFIELD_EXPORT_DIR
-        value: exports
+        value: /tmp/exports
       - key: OPENFIELD_SECRET_KEY
         generateValue: true
