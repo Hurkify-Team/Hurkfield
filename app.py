@@ -2256,6 +2256,92 @@ def _create_user(
         return int(cur.lastrowid)
 
 
+def _bootstrap_login_user_from_oauth(email: str, name: str, provider: str, oauth_sub: str) -> Optional[dict]:
+    """
+    Recovery path for stateless deployments: if users table is empty, recreate
+    the first owner from OAuth login so returning owners are not blocked.
+    """
+    clean_email = (email or "").strip().lower()
+    clean_name = (name or "").strip()
+    clean_provider = (provider or "").strip().lower()
+    clean_sub = (oauth_sub or "").strip()
+    if not clean_email:
+        return None
+
+    org_id = None
+    domain = _normalize_domain_value(clean_email)
+
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users' LIMIT 1")
+            if not cur.fetchone():
+                return None
+            cur.execute("SELECT COUNT(*) AS c FROM users")
+            user_count = int((cur.fetchone()["c"] or 0))
+            if user_count != 0:
+                return None
+
+            matched_org = _get_org_by_domain(domain) if domain else None
+            if matched_org and matched_org.get("id") is not None:
+                org_id = int(matched_org.get("id"))
+            if org_id is None:
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='organizations' LIMIT 1")
+                if cur.fetchone():
+                    cur.execute("SELECT id FROM organizations ORDER BY id ASC LIMIT 1")
+                    org_row = cur.fetchone()
+                    if org_row:
+                        org_id = int(org_row["id"])
+    except Exception:
+        return None
+
+    if org_id is None:
+        try:
+            seed = domain.split(".", 1)[0] if domain else clean_email.split("@", 1)[0]
+            seed = (seed or "workspace").replace("-", " ").replace("_", " ").strip().title()
+            org_name = f"{seed} Workspace"
+            org_id = int(prj.create_organization(name=org_name, domain=domain))
+        except Exception:
+            return None
+
+    display_name = clean_name or clean_email.split("@", 1)[0].replace(".", " ").title() or "Workspace Owner"
+    try:
+        user_id = _create_user(
+            organization_id=int(org_id),
+            full_name=display_name,
+            email=clean_email,
+            password=None,
+            role="OWNER",
+            title="",
+            phone="",
+            email_verified=1,
+            status="ACTIVE",
+        )
+        with get_conn() as conn:
+            cols = [r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
+            updates = []
+            values = []
+            if "auth_provider" in cols:
+                updates.append("auth_provider=?")
+                values.append("google" if clean_provider == "google" else "local")
+            if clean_provider == "google" and clean_sub and "google_sub" in cols:
+                updates.append("google_sub=?")
+                values.append(clean_sub)
+            if "updated_at" in cols:
+                updates.append("updated_at=?")
+                values.append(now_iso())
+            if "last_login_at" in cols:
+                updates.append("last_login_at=?")
+                values.append(now_iso())
+            if updates:
+                conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id=?", (*values, int(user_id)))
+                conn.commit()
+    except Exception:
+        return None
+
+    return _find_user_by_oauth_identity(clean_email, clean_provider, clean_sub)
+
+
 def _create_user_token(user_id: int, token_type: str, hours_valid: int = 48) -> str:
     token = secrets.token_urlsafe(32)
     expires_at = (datetime.now() + timedelta(hours=hours_valid)).isoformat(timespec="seconds")
@@ -3489,6 +3575,8 @@ def auth_callback(provider):
 
     # If user exists, sign in
     user = _find_user_by_oauth_identity(email, provider, google_sub)
+    if not user and oauth_intent == "login":
+        user = _bootstrap_login_user_from_oauth(email, name, provider, google_sub)
     if user:
         status = (user.get("status") or "ACTIVE").upper()
         if status == "PENDING":
