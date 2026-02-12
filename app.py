@@ -10475,7 +10475,7 @@ def ui_org_users():
     invite_block = f"""
     <div class="card" style="margin-top:16px">
       <h3 style="margin-top:0">Invite teammate</h3>
-      <div class="row" style="justify-content:space-between; align-items:center;">
+      <div class="team-card-head">
         <div class="muted">Send an invite link to a supervisor or analyst.</div>
         <span class="env-badge {'env-live' if smtp_ready else 'env-dev'}">{'Email: Connected' if smtp_ready else 'Email: Not configured'}</span>
       </div>
@@ -10484,21 +10484,21 @@ def ui_org_users():
         f"<div class='card' style='margin-top:10px; border-color: rgba(59, 130, 246, .35); display:flex; align-items:center; justify-content:space-between; gap:10px;'><div><b>Invite link ready:</b><div class='muted' style='font-size:12px; margin-top:4px; word-break:break-all;'>{html.escape(invite_link)}</div></div><button class='btn btn-sm' type='button' data-copy='{html.escape(invite_link)}'>Copy link</button></div>"
         if invite_link else ""
       )}
-      <form method="POST" class="row" style="margin-top:12px; flex-wrap:wrap;">
+      <form method="POST" class="team-form-grid team-form-grid-3" style="margin-top:12px;">
         <input type="hidden" name="action" value="invite" />
-        <div style="flex:2; min-width:220px">
+        <div class="team-col-6">
           <input name="invite_email" placeholder="email@organization.org" />
         </div>
-        <div style="flex:1; min-width:160px">
+        <div class="team-col-3">
           <select name="invite_role">
             <option value="SUPERVISOR">Supervisor</option>
             <option value="ANALYST">Analyst</option>
           </select>
         </div>
-        <div>
+        <div class="team-col-3">
           <button class="btn btn-primary" type="submit">Send invite</button>
         </div>
-        <div style="flex-basis:100%; margin-top:10px;">
+        <div class="team-col-12">
           <textarea name="invite_note" placeholder="Add a short note (optional)" style="min-height:72px"></textarea>
         </div>
       </form>
@@ -10509,29 +10509,31 @@ def ui_org_users():
     <div class="card" style="margin-top:16px">
       <h3 style="margin-top:0">Supervisors</h3>
       <div class="muted">Create supervisor access keys and manage status.</div>
-      <form method="POST" class="stack" style="margin-top:12px">
+      <form method="POST" class="stack team-stack" style="margin-top:12px">
         <input type="hidden" name="action" value="create_supervisor" />
-        <div class="row" style="gap:12px; flex-wrap:wrap;">
-          <div style="flex:2; min-width:200px">
+        <div class="team-form-grid">
+          <div class="team-col-4">
             <label style="font-weight:800">Full name</label>
             <input name="full_name" placeholder="Supervisor name" />
           </div>
-          <div style="flex:2; min-width:200px">
+          <div class="team-col-4">
             <label style="font-weight:800">Email</label>
             <input name="email" placeholder="email@example.com" />
           </div>
-          <div style="flex:1; min-width:160px">
+          <div class="team-col-4">
             <label style="font-weight:800">Phone</label>
             <input name="phone" placeholder="Phone" />
           </div>
         </div>
-        <div class="row" style="gap:12px; flex-wrap:wrap;">
-          <div style="flex:1; min-width:220px">
+        <div class="team-form-grid">
+          <div class="team-col-6">
             <label style="font-weight:800">Access key (auto-generated)</label>
             <input name="access_key" placeholder="Auto-generated" disabled />
           </div>
+          <div class="team-col-6 team-align-end">
+            <button class="btn btn-primary" type="submit">Create supervisor</button>
+          </div>
         </div>
-        <button class="btn btn-primary" type="submit">Create supervisor</button>
       </form>
       <div style="margin-top:12px">
         <table class="table">
@@ -10639,16 +10641,50 @@ def ui_org_users():
         border-radius: 20px;
         background: linear-gradient(180deg, #ffffff, #fbfbff);
         box-shadow: 0 16px 34px -28px rgba(15,23,42,.35);
+        padding: 16px;
       }}
       .team-shell h3 {{
         margin-top: 0;
+      }}
+      .team-card-head {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }}
+      .team-stack {{
+        gap: 12px;
+      }}
+      .team-form-grid {{
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 12px;
+      }}
+      .team-col-12 {{ grid-column: span 12; }}
+      .team-col-8 {{ grid-column: span 8; }}
+      .team-col-6 {{ grid-column: span 6; }}
+      .team-col-4 {{ grid-column: span 4; }}
+      .team-col-3 {{ grid-column: span 3; }}
+      .team-align-end {{
+        display: flex;
+        align-items: flex-end;
+      }}
+      .team-align-end .btn {{
+        width: 100%;
+      }}
+      .team-shell label {{
+        display: inline-block;
+        margin-bottom: 6px;
+        color: #475569;
+        font-size: 12px;
+        letter-spacing: .02em;
       }}
       .team-shell input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
       .team-shell select,
       .team-shell textarea {{
         border-radius: 14px;
-        border: 1px solid rgba(148, 163, 184, .42);
-        background: #fff;
+        border: 1px solid rgba(124,58,237,.24);
+        background: linear-gradient(180deg, #ffffff 0%, #f8f7ff 100%);
         color: #0f172a;
         padding: 11px 12px;
         font-size: 14px;
@@ -10708,6 +10744,17 @@ def ui_org_users():
       }}
       @media (max-width: 900px) {{
         .team-title {{ font-size: 24px; }}
+        .team-card-head {{
+          align-items: flex-start;
+          flex-direction: column;
+        }}
+        .team-col-12,
+        .team-col-8,
+        .team-col-6,
+        .team-col-4,
+        .team-col-3 {{
+          grid-column: 1 / -1;
+        }}
       }}
     </style>
 
@@ -10730,7 +10777,7 @@ def ui_org_users():
       {supervisors_block}
 
       <div class="card">
-        <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div class="team-card-head" style="gap:12px; flex-wrap:wrap;">
           <div>
             <h3 style="margin-bottom:4px;">Enumerators</h3>
             <div class="muted">Add enumerators and assign them to a project/template flow.</div>
@@ -10743,53 +10790,55 @@ def ui_org_users():
         </div>
         {("<div class='team-alert-success' style='margin-top:10px;'><b>Success:</b> " + enum_msg + "</div>" if enum_msg else "")}
         {("<div class='team-alert-error' style='margin-top:10px;'><b>Error:</b> " + enum_err + "</div>" if enum_err else "")}
-        <form method="POST" class="stack" style="margin-top:14px" id="enumForm">
+        <form method="POST" class="stack team-stack" style="margin-top:14px" id="enumForm">
           <input type="hidden" name="action" value="create_enumerator" />
-          <div class="row" style="gap:12px; flex-wrap:wrap;">
-            <div style="flex:2; min-width:220px">
+          <div class="team-form-grid">
+            <div class="team-col-4">
               <label style="font-weight:800">Full name</label>
               <input name="enum_name" placeholder="Enumerator full name" />
             </div>
-            <div style="flex:2; min-width:220px">
+            <div class="team-col-4">
               <label style="font-weight:800">Email</label>
               <input name="enum_email" placeholder="email@example.com" />
             </div>
-            <div style="flex:1; min-width:160px">
+            <div class="team-col-4">
               <label style="font-weight:800">Phone</label>
               <input name="enum_phone" placeholder="Phone" />
             </div>
           </div>
-          <div class="row" style="gap:12px; flex-wrap:wrap;">
-            <div style="flex:2; min-width:220px">
+          <div class="team-form-grid">
+            <div class="team-col-4">
               <label style="font-weight:800">Project (optional)</label>
               <select name="project_id" id="enumProjectSelect">
                 {''.join(project_selector_options)}
               </select>
             </div>
-            <div style="flex:2; min-width:220px">
+            <div class="team-col-4">
               <label style="font-weight:800">Assign to template (optional)</label>
               <select name="template_id">
                 <option value="">Any form</option>
                 {''.join(template_options) if template_options else ""}
               </select>
             </div>
-            <div style="flex:1; min-width:160px">
+            <div class="team-col-4">
               <label style="font-weight:800">Target facilities (optional)</label>
               <div id="enumTargetWrap">
                 <input name="target_facilities_count" placeholder="e.g., 8" />
               </div>
             </div>
           </div>
-          <div class="row" style="gap:12px; flex-wrap:wrap;">
-            <div style="flex:2; min-width:220px">
+          <div class="team-form-grid">
+            <div class="team-col-8">
               <label style="font-weight:800">Coverage label (optional)</label>
               <div id="enumCoverageWrap">
                 <input name="coverage_label" placeholder="e.g., Mushin LGA" {"disabled" if not project_selected else ""} />
                 {("<div class='muted' style='margin-top:6px'>Coverage is only available for project assignments.</div>" if not project_selected else "")}
               </div>
             </div>
+            <div class="team-col-4 team-align-end">
+              <button class="btn btn-primary" type="submit">Create enumerator</button>
+            </div>
           </div>
-          <button class="btn btn-primary" type="submit">Create enumerator</button>
         </form>
         <div style="margin-top:12px">
           {(
