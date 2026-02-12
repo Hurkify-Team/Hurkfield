@@ -2420,6 +2420,7 @@ def ui_signup():
     msg = ""
     oauth_pending = session.get("oauth_pending") or {}
     oauth_flow = request.values.get("oauth") == "1" or request.form.get("oauth_flow") == "1" or bool(oauth_pending)
+    from_login_hint = request.args.get("from") == "login"
     if request.method == "POST":
         try:
             org_type = (request.form.get("org_type") or "").strip()
@@ -2545,30 +2546,31 @@ def ui_signup():
     err_html = err if "<a" in err else html.escape(err)
     social_html = """
       <div class="mt-4 grid grid-cols-2 gap-2">
-        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/google">Google</a>
-        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/microsoft">Microsoft</a>
-        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/linkedin">LinkedIn</a>
-        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/facebook">Facebook</a>
+        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/google?intent=signup">Continue with Google</a>
+        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/microsoft?intent=signup">Continue with Microsoft</a>
+        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/linkedin?intent=signup">Continue with LinkedIn</a>
+        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/facebook?intent=signup">Continue with Facebook</a>
       </div>
       <div class="mt-3 text-xs text-slate-500">or create account with email</div>
     """ if not oauth_flow else ""
+    control_cls = "mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100"
 
     html_page = f"""
-<div class="min-h-screen bg-slate-50 py-10">
-  <div class="max-w-6xl mx-auto px-6">
-    <div class="bg-white border border-slate-200 rounded-3xl shadow-xl overflow-hidden grid lg:grid-cols-2">
-      <div class="p-10 text-white bg-gradient-to-br from-indigo-700 via-violet-600 to-indigo-500">
+<div class="min-h-screen bg-gradient-to-b from-violet-50 via-white to-slate-50 py-8 sm:py-10">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6">
+    <div class="bg-white border border-violet-100 rounded-[28px] shadow-[0_26px_90px_-36px_rgba(124,58,237,0.48)] overflow-hidden grid lg:grid-cols-2">
+      <div class="p-8 sm:p-10 text-white bg-gradient-to-br from-violet-700 via-fuchsia-600 to-indigo-600">
         <a href="/" class="inline-flex items-center">
-          <img src="/static/logos/hurkfield.jpeg" alt="HurkField logo" class="h-14 w-auto rounded-xl shadow-lg" />
+          <img src="/static/logos/hurkfield.jpeg" alt="HurkField logo" class="h-16 w-auto rounded-2xl shadow-2xl ring-1 ring-white/30" />
         </a>
-        <h2 class="text-3xl font-extrabold mt-4">Create your HurkField workspace</h2>
-        <p class="text-white/80 mt-2">Set up a secure workspace to build forms, assign enumerators, and monitor submissions.</p>
-        <div class="mt-6 space-y-2 text-sm text-white/90">
-          <div>✓ Project‑based data collection</div>
-          <div>✓ Enumerator assignments + tracking</div>
-          <div>✓ QA, exports, and audit trails</div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold mt-5 tracking-tight">Create your HurkField workspace</h2>
+        <p class="text-white/90 mt-3 text-sm sm:text-base leading-relaxed">Set up a secure workspace to build forms, assign enumerators, and monitor submissions.</p>
+        <div class="mt-7 space-y-2.5 text-sm text-white/95">
+          <div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs">✓</span> Project-based data collection</div>
+          <div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs">✓</span> Enumerator assignments + tracking</div>
+          <div class="flex items-center gap-2"><span class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-xs">✓</span> QA, exports, and audit trails</div>
         </div>
-        <div class="mt-6 rounded-2xl bg-white/10 border border-white/20 p-4">
+        <div class="mt-7 rounded-3xl bg-white/10 border border-white/20 p-4 shadow-inner shadow-white/10">
           <svg viewBox="0 0 420 240" width="100%" height="200" aria-hidden="true">
             <path d="M36 118c-8-52 42-92 94-88 34 3 54-4 78-22 34-25 90-5 110 30 22 38 56 34 70 68 18 43-10 88-54 96-38 7-58 34-102 36-48 2-62-22-100-24-48-2-82-24-96-96Z" fill="rgba(255,255,255,0.18)"/>
             <rect x="46" y="184" width="328" height="12" rx="6" fill="rgba(255,255,255,0.45)"/>
@@ -2592,17 +2594,18 @@ def ui_signup():
           </svg>
         </div>
       </div>
-      <div class="p-8 lg:p-10">
-        <div class="text-2xl font-extrabold">Workspace details</div>
-        <div class="text-sm text-slate-500">Complete your organization profile to continue.</div>
+      <div class="p-6 sm:p-8 lg:p-10 bg-slate-50/50">
+        <div class="text-2xl sm:text-3xl font-extrabold text-slate-900">Workspace details</div>
+        <div class="text-sm text-slate-600 mt-1">Complete your organization profile to continue.</div>
+        {"<div class='mt-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800'><b>No account found:</b> complete signup to create your workspace.</div>" if from_login_hint else ""}
         {f"<div class='mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'><b>Error:</b> {err_html}</div>" if err else ""}
         {social_html}
-        <form method="POST" class="mt-6 space-y-4">
+        <form method="POST" class="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
           <input type="hidden" name="oauth_flow" value="{1 if oauth_flow else 0}" />
           <div class="grid md:grid-cols-2 gap-4">
             <div>
               <label class="text-xs font-semibold text-slate-600">Account type</label>
-              <select name="org_type" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+              <select name="org_type" class="{control_cls}">
                 <option value="Organization">Organization / NGO / Agency</option>
                 <option value="Individual">Individual Researcher</option>
                 <option value="Firm">Research Firm / Consultancy</option>
@@ -2611,21 +2614,21 @@ def ui_signup():
             </div>
             <div>
               <label class="text-xs font-semibold text-slate-600">Organization name</label>
-              <input name="org_name" placeholder="e.g., Global Health Initiative" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <input name="org_name" placeholder="e.g., Global Health Initiative" required class="{control_cls}" />
             </div>
           </div>
           <div class="grid md:grid-cols-3 gap-4">
             <div>
               <label class="text-xs font-semibold text-slate-600">Country</label>
-              <input name="country" placeholder="e.g., Nigeria" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <input name="country" placeholder="e.g., Nigeria" class="{control_cls}" />
             </div>
             <div>
               <label class="text-xs font-semibold text-slate-600">Region / State</label>
-              <input name="region" placeholder="e.g., Lagos" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <input name="region" placeholder="e.g., Lagos" class="{control_cls}" />
             </div>
             <div>
               <label class="text-xs font-semibold text-slate-600">Sector</label>
-              <select name="sector" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+              <select name="sector" class="{control_cls}">
                 <option value="">Select sector</option>
                 <option>Health</option>
                 <option>Education</option>
@@ -2642,7 +2645,7 @@ def ui_signup():
           <div class="grid md:grid-cols-3 gap-4">
             <div>
               <label class="text-xs font-semibold text-slate-600">Organization size</label>
-              <select name="size" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm">
+              <select name="size" class="{control_cls}">
                 <option value="">Select size</option>
                 <option>1-10</option>
                 <option>11-50</option>
@@ -2652,48 +2655,48 @@ def ui_signup():
             </div>
             <div>
               <label class="text-xs font-semibold text-slate-600">Website (optional)</label>
-              <input name="website" placeholder="https://example.org" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <input name="website" placeholder="https://example.org" class="{control_cls}" />
             </div>
             <div>
               <label class="text-xs font-semibold text-slate-600">Org email domain (optional)</label>
-              <input name="domain" placeholder="example.org" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+              <input name="domain" placeholder="example.org" class="{control_cls}" />
             </div>
           </div>
           <div>
             <label class="text-xs font-semibold text-slate-600">Address (optional)</label>
-            <input name="address" placeholder="Office address" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+            <input name="address" placeholder="Office address" class="{control_cls}" />
           </div>
           <div class="pt-4 border-t border-slate-200">
             <div class="text-lg font-bold">Your details</div>
             <div class="grid md:grid-cols-2 gap-4 mt-3">
               <div>
                 <label class="text-xs font-semibold text-slate-600">Full name</label>
-                <input name="full_name" placeholder="Your name" value="{html.escape(oauth_pending.get('name',''))}" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                <input name="full_name" placeholder="Your name" value="{html.escape(oauth_pending.get('name',''))}" required class="{control_cls}" />
               </div>
               <div>
                 <label class="text-xs font-semibold text-slate-600">Work email</label>
-                <input name="email" type="email" placeholder="you@org.org" value="{html.escape(oauth_pending.get('email',''))}" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                <input name="email" type="email" placeholder="you@org.org" value="{html.escape(oauth_pending.get('email',''))}" required class="{control_cls}" />
               </div>
             </div>
             <div class="grid md:grid-cols-2 gap-4 mt-3">
               <div>
                 <label class="text-xs font-semibold text-slate-600">Role / Title</label>
-                <input name="title" placeholder="e.g., M&E Officer" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                <input name="title" placeholder="e.g., M&E Officer" class="{control_cls}" />
               </div>
               <div>
                 <label class="text-xs font-semibold text-slate-600">Phone (optional)</label>
-                <input name="phone" placeholder="+234..." class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
+                <input name="phone" placeholder="+234..." class="{control_cls}" />
               </div>
             </div>
             {"" if oauth_flow else """
             <div class=\"grid md:grid-cols-2 gap-4 mt-3\">
               <div>
                 <label class=\"text-xs font-semibold text-slate-600\">Password</label>
-                <input name=\"password\" type=\"password\" required class=\"mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm\" />
+                <input name=\"password\" type=\"password\" required class=\"""" + control_cls + """\" />
               </div>
               <div>
                 <label class=\"text-xs font-semibold text-slate-600\">Confirm password</label>
-                <input name=\"confirm\" type=\"password\" required class=\"mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm\" />
+                <input name=\"confirm\" type=\"password\" required class=\"""" + control_cls + """\" />
               </div>
             </div>
             <div class=\"mt-2 text-xs text-slate-500\">Password: 10+ characters, letters + numbers.</div>
@@ -2703,8 +2706,8 @@ def ui_signup():
             <label class="flex items-center gap-2"><input type="checkbox" name="agree_terms" /> I agree to the Terms of Service</label>
             <label class="flex items-center gap-2"><input type="checkbox" name="agree_privacy" /> I agree to the Privacy Policy</label>
           </div>
-          <button class="mt-2 w-full rounded-xl bg-brand text-white py-2.5 font-semibold shadow" type="submit">Create workspace</button>
-          <div class="text-xs text-slate-500 mt-2">Already have an account? <a class="text-brand font-semibold" href="/login">Sign in</a></div>
+          <button class="mt-2 inline-flex w-full items-center justify-center rounded-2xl bg-violet-600 py-3 text-sm font-semibold tracking-wide text-white shadow-lg shadow-violet-300/60 transition hover:bg-violet-700 focus:outline-none focus:ring-4 focus:ring-violet-200" style="background:linear-gradient(135deg,#7C3AED,#8B5CF6);color:#fff;" type="submit">Create workspace</button>
+          <div class="text-xs text-slate-500 mt-2">Already have an account? <a class="font-semibold text-violet-700 hover:text-violet-800" href="/login">Sign in</a></div>
         </form>
       </div>
     </div>
@@ -2850,7 +2853,7 @@ def ui_login():
               </div>
 
               <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <a href="/auth/google" class="group inline-flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primaryLight/40">
+                <a href="/auth/google?intent=login" class="group inline-flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primaryLight/40">
                   <svg viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true">
                     <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3-3C17.2 1.8 14.8 1 12 1 7.7 1 3.9 3.5 2.1 7.1l3.5 2.7C6.5 7 9 5 12 5z"></path>
                     <path fill="#34A853" d="M12 23c2.8 0 5.2-.9 7-2.5l-3.2-2.5c-1 .7-2.3 1.2-3.8 1.2-3 0-5.5-2-6.4-4.8l-3.6 2.8C3.8 20.5 7.6 23 12 23z"></path>
@@ -2860,7 +2863,7 @@ def ui_login():
                   Continue with Google
                 </a>
 
-                <a href="/auth/microsoft" class="group inline-flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primaryLight/40">
+                <a href="/auth/microsoft?intent=login" class="group inline-flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primaryLight/40">
                   <svg viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true">
                     <rect x="2" y="2" width="9" height="9" fill="#F25022"></rect>
                     <rect x="13" y="2" width="9" height="9" fill="#7FBA00"></rect>
@@ -2870,7 +2873,7 @@ def ui_login():
                   Continue with Microsoft
                 </a>
 
-                <a href="/auth/linkedin" class="group inline-flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primaryLight/40">
+                <a href="/auth/linkedin?intent=login" class="group inline-flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primaryLight/40">
                   <svg viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true">
                     <rect x="1" y="1" width="22" height="22" rx="4" fill="#0A66C2"></rect>
                     <path fill="#fff" d="M7.1 9h2.4v7.6H7.1V9zm1.2-3.8c.8 0 1.4.6 1.4 1.4S9.1 8 8.3 8 6.9 7.4 6.9 6.6s.6-1.4 1.4-1.4zm2.7 3.8h2.3v1c.3-.6 1.1-1.2 2.3-1.2 2.4 0 2.9 1.6 2.9 3.7v4.1h-2.4v-3.6c0-.9 0-2-1.2-2s-1.4.9-1.4 2v3.6H11V9z"></path>
@@ -2878,7 +2881,7 @@ def ui_login():
                   Continue with LinkedIn
                 </a>
 
-                <a href="/auth/facebook" class="group inline-flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primaryLight/40">
+                <a href="/auth/facebook?intent=login" class="group inline-flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-primary/40 hover:bg-primaryLight/40">
                   <svg viewBox="0 0 24 24" class="h-5 w-5" aria-hidden="true">
                     <circle cx="12" cy="12" r="11" fill="#1877F2"></circle>
                     <path fill="#fff" d="M13.6 8.2h1.8V5.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H6.6v3.1h2.6v4.8h3.2v-4.8h2.5l.4-3.1h-2.9V9.7c0-.9.2-1.5 1.2-1.5z"></path>
@@ -3276,11 +3279,16 @@ def auth_provider(provider):
             f"<h2>OAuth not available</h2><p>OAuth dependencies are missing. Install the <code>requests</code> package to enable OAuth.</p><div class='muted'>{html.escape(_OAUTH_IMPORT_ERROR)}</div>",
             501,
         )
+    oauth_intent = (request.args.get("intent") or "login").strip().lower()
+    if oauth_intent not in ("login", "signup"):
+        oauth_intent = "login"
     link_intent = request.args.get("link") == "1"
     user = getattr(g, "user", None)
     if link_intent and user and provider == "google":
         session["oauth_link_intent"] = "google"
         session["oauth_link_user_id"] = int(user.get("id"))
+    elif not link_intent:
+        session["oauth_intent"] = oauth_intent
     client = oauth.create_client(provider)
     if not client:
         env_hint = {
@@ -3313,13 +3321,18 @@ def auth_provider(provider):
 @app.route("/auth/<provider>/callback")
 def auth_callback(provider):
     provider = (provider or "").strip().lower()
+    oauth_intent = (session.pop("oauth_intent", "") or "login").strip().lower()
+    if oauth_intent not in ("login", "signup"):
+        oauth_intent = "login"
     oauth_error = (request.args.get("error") or "").strip()
     if oauth_error:
         desc = html.escape(request.args.get("error_description") or oauth_error)
+        back_url = "/signup" if oauth_intent == "signup" else "/login"
+        back_text = "Back to sign up" if oauth_intent == "signup" else "Back to sign in"
         return (
             ui_shell(
                 "OAuth Error",
-                f"<div class='card' style='max-width:720px;margin:40px auto;'><h2 style='margin-top:0'>OAuth was cancelled or failed</h2><div class='muted'>{desc}</div><div style='margin-top:14px'><a class='btn btn-primary' href='/login'>Back to sign in</a></div></div>",
+                f"<div class='card' style='max-width:720px;margin:40px auto;'><h2 style='margin-top:0'>OAuth was cancelled or failed</h2><div class='muted'>{desc}</div><div style='margin-top:14px'><a class='btn btn-primary' href='{back_url}'>{back_text}</a></div></div>",
                 show_project_switcher=False,
                 show_nav=False,
             ),
@@ -3465,61 +3478,9 @@ def auth_callback(provider):
     except Exception:
         pass
 
-    # If org domain exists, auto-join; otherwise collect org details
-    domain = email.split("@", 1)[1] if "@" in email else ""
-    matched_org = _get_org_by_domain(domain)
-    if matched_org:
-        org_id = int(matched_org.get("id"))
-        org_domain_raw = (matched_org.get("domain") or "").strip().lower()
-        force_active_owner = org_domain_raw == email
-        try:
-            with get_conn() as conn:
-                cur = conn.cursor()
-                cur.execute("SELECT COUNT(*) AS c FROM users WHERE organization_id=?", (org_id,))
-                count = int(cur.fetchone()["c"] or 0)
-        except Exception:
-            count = 0
-        try:
-            is_first_user = count == 0 or force_active_owner
-            role = "OWNER" if is_first_user else "SUPERVISOR"
-            status = "ACTIVE" if is_first_user else "PENDING"
-            user_id = _create_user(
-                organization_id=org_id,
-                full_name=name or email.split("@")[0],
-                email=email,
-                password=None,
-                role=role,
-                title="",
-                phone="",
-                email_verified=1,
-                status=status,
-            )
-            if status == "ACTIVE":
-                session["user_id"] = int(user_id)
-                session["org_id"] = org_id
-                session["role"] = role
-                session["user_name"] = (name or email.split("@")[0]).strip()
-                session["user_email"] = email
-                session.permanent = True
-                _create_session_record(int(user_id))
-                _log_security_event(int(user_id), "LOGIN_SUCCESS", {"provider": provider})
-                try:
-                    with get_conn() as conn:
-                        if provider == "google" and google_sub:
-                            conn.execute(
-                                "UPDATE users SET google_sub=?, auth_provider=?, updated_at=? WHERE id=?",
-                                (google_sub, "google", now_iso(), int(user_id)),
-                            )
-                        conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (now_iso(), int(user_id)))
-                        conn.commit()
-                except Exception:
-                    pass
-                return redirect(url_for("ui_dashboard"))
-            return redirect(url_for("ui_login") + "?pending=1")
-        except Exception:
-            return redirect(url_for("ui_login"))
-
     session["oauth_pending"] = {"provider": provider, "email": email, "name": name, "sub": google_sub}
+    if oauth_intent == "login":
+        return redirect(url_for("ui_signup") + "?oauth=1&from=login")
     return redirect(url_for("ui_signup") + "?oauth=1")
 
 
