@@ -2148,6 +2148,57 @@ def _normalize_domain_value(value: str) -> str:
     return v.strip()
 
 
+def _canonical_email_for_match(value: str) -> str:
+    email = (value or "").strip().lower()
+    if "@" not in email:
+        return email
+    local, domain = email.split("@", 1)
+    local = local.strip().lower()
+    domain = domain.strip().lower()
+    if domain in ("googlemail.com", "gmail.com"):
+        local = local.split("+", 1)[0].replace(".", "")
+        domain = "gmail.com"
+    return f"{local}@{domain}"
+
+
+def _find_user_by_oauth_identity(email: str, provider: str = "", oauth_sub: str = "") -> Optional[dict]:
+    clean_email = (email or "").strip().lower()
+    clean_provider = (provider or "").strip().lower()
+    clean_sub = (oauth_sub or "").strip()
+    if not clean_email and not clean_sub:
+        return None
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            if clean_email:
+                cur.execute(
+                    "SELECT * FROM users WHERE LOWER(TRIM(email))=LOWER(TRIM(?)) LIMIT 1",
+                    (clean_email,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return dict(row)
+
+                canonical = _canonical_email_for_match(clean_email)
+                if canonical and canonical != clean_email:
+                    cur.execute("SELECT * FROM users WHERE email LIKE '%@gmail.com' OR email LIKE '%@googlemail.com'")
+                    for r in cur.fetchall():
+                        em = (r["email"] or "").strip().lower()
+                        if em and _canonical_email_for_match(em) == canonical:
+                            return dict(r)
+
+            if clean_provider == "google" and clean_sub:
+                cols = [r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
+                if "google_sub" in cols:
+                    cur.execute("SELECT * FROM users WHERE google_sub=? LIMIT 1", (clean_sub,))
+                    row = cur.fetchone()
+                    if row:
+                        return dict(row)
+    except Exception:
+        return None
+    return None
+
+
 def _get_org_by_domain(domain: str):
     domain = _normalize_domain_value(domain)
     if not domain:
@@ -2724,6 +2775,8 @@ def ui_login():
     err = ""
     next_url = request.values.get("next") or url_for("ui_dashboard")
     pending_flag = request.args.get("pending") == "1"
+    oauth_no_account = request.args.get("oauth_no_account") == "1"
+    oauth_email = (request.args.get("email") or "").strip().lower()
     if request.method == "POST":
         try:
             email = (request.form.get("email") or "").strip().lower()
@@ -2776,6 +2829,11 @@ def ui_login():
         if pending_flag
         else ""
     )
+    oauth_no_account_html = (
+        f"<div class='mt-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800'><b>No account found:</b> {html.escape(oauth_email or 'This email')} is not registered yet. Use <a class='font-semibold underline' href='/signup'>Create workspace</a> to sign up first.</div>"
+        if oauth_no_account
+        else ""
+    )
     err_html = (
         f"<div class='mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'><b>Error:</b> {html.escape(err)}</div>"
         if err
@@ -2819,6 +2877,7 @@ def ui_login():
               <p class="mt-1 text-sm text-slate-500">Access your organization workspace.</p>
 
               {pending_html}
+              {oauth_no_account_html}
               {err_html}
 
               <form method="POST" class="mt-6 space-y-4">
@@ -3429,58 +3488,51 @@ def auth_callback(provider):
         return redirect(url_for("ui_settings_security"))
 
     # If user exists, sign in
-    try:
-        with get_conn() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM users WHERE LOWER(email)=LOWER(?) LIMIT 1", (email,))
-            row = cur.fetchone()
-            if row:
-                user = dict(row)
-                status = (user.get("status") or "ACTIVE").upper()
-                if status == "PENDING":
-                    return redirect(url_for("ui_login") + "?pending=1")
-                if status != "ACTIVE":
-                    return redirect(url_for("ui_login"))
-                if int(user.get("email_verified") or 0) != 1:
-                    try:
-                        with get_conn() as conn:
-                            conn.execute("UPDATE users SET email_verified=1, verified_at=? WHERE id=?", (now_iso(), int(user.get("id"))))
-                            conn.commit()
-                    except Exception:
-                        pass
-                session["user_id"] = int(user.get("id"))
-                session["org_id"] = user.get("organization_id")
-                session["role"] = user.get("role")
-                session["user_name"] = (user.get("full_name") or "").strip()
-                session["user_email"] = (user.get("email") or "").strip().lower()
-                session.permanent = True
-                _create_session_record(int(user.get("id")))
-                _log_security_event(int(user.get("id")), "LOGIN_SUCCESS", {"provider": provider})
-                try:
-                    with get_conn() as conn:
-                        if provider == "google" and google_sub:
-                            cur2 = conn.cursor()
-                            cur2.execute("SELECT google_sub, password_hash FROM users WHERE id=? LIMIT 1", (int(user.get("id")),))
-                            r2 = cur2.fetchone()
-                            existing_sub = (r2["google_sub"] or "") if r2 else ""
-                            has_pw = bool(r2 and r2["password_hash"])
-                            if not existing_sub:
-                                next_provider = "both" if has_pw else "google"
-                                conn.execute(
-                                    "UPDATE users SET google_sub=?, auth_provider=?, updated_at=? WHERE id=?",
-                                    (google_sub, next_provider, now_iso(), int(user.get("id"))),
-                                )
-                        conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (now_iso(), int(user.get("id"))))
-                        conn.commit()
-                except Exception:
-                    pass
-                return redirect(url_for("ui_dashboard"))
-    except Exception:
-        pass
+    user = _find_user_by_oauth_identity(email, provider, google_sub)
+    if user:
+        status = (user.get("status") or "ACTIVE").upper()
+        if status == "PENDING":
+            return redirect(url_for("ui_login") + "?pending=1")
+        if status != "ACTIVE":
+            return redirect(url_for("ui_login"))
+        if int(user.get("email_verified") or 0) != 1:
+            try:
+                with get_conn() as conn:
+                    conn.execute("UPDATE users SET email_verified=1, verified_at=? WHERE id=?", (now_iso(), int(user.get("id"))))
+                    conn.commit()
+            except Exception:
+                pass
+        session["user_id"] = int(user.get("id"))
+        session["org_id"] = user.get("organization_id")
+        session["role"] = user.get("role")
+        session["user_name"] = (user.get("full_name") or "").strip()
+        session["user_email"] = (user.get("email") or "").strip().lower()
+        session.permanent = True
+        _create_session_record(int(user.get("id")))
+        _log_security_event(int(user.get("id")), "LOGIN_SUCCESS", {"provider": provider})
+        try:
+            with get_conn() as conn:
+                if provider == "google" and google_sub:
+                    cur2 = conn.cursor()
+                    cur2.execute("SELECT google_sub, password_hash FROM users WHERE id=? LIMIT 1", (int(user.get("id")),))
+                    r2 = cur2.fetchone()
+                    existing_sub = (r2["google_sub"] or "") if r2 else ""
+                    has_pw = bool(r2 and r2["password_hash"])
+                    if not existing_sub:
+                        next_provider = "both" if has_pw else "google"
+                        conn.execute(
+                            "UPDATE users SET google_sub=?, auth_provider=?, updated_at=? WHERE id=?",
+                            (google_sub, next_provider, now_iso(), int(user.get("id"))),
+                        )
+                conn.execute("UPDATE users SET last_login_at=? WHERE id=?", (now_iso(), int(user.get("id"))))
+                conn.commit()
+        except Exception:
+            pass
+        return redirect(url_for("ui_dashboard"))
 
     session["oauth_pending"] = {"provider": provider, "email": email, "name": name, "sub": google_sub}
     if oauth_intent == "login":
-        return redirect(url_for("ui_signup") + "?oauth=1&from=login")
+        return redirect(url_for("ui_login", oauth_no_account=1, email=email))
     return redirect(url_for("ui_signup") + "?oauth=1")
 
 
