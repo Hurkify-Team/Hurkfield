@@ -474,27 +474,32 @@ def init_db() -> None:
                   email_verified INTEGER NOT NULL DEFAULT 0,
                   verified_at TEXT,
                   last_login_at TEXT,
-                  created_at TEXT
+                  created_at TEXT,
+                  profile_image_path TEXT,
+                  auth_provider TEXT NOT NULL DEFAULT 'local',
+                  google_sub TEXT,
+                  updated_at TEXT
                 )
                 """
             )
-        else:
-            _add_column_if_missing(conn, "users", "organization_id INTEGER")
-            _add_column_if_missing(conn, "users", "full_name TEXT")
-            _add_column_if_missing(conn, "users", "email TEXT")
-            _add_column_if_missing(conn, "users", "password_hash TEXT")
-            _add_column_if_missing(conn, "users", "role TEXT NOT NULL DEFAULT 'OWNER'")
-            _add_column_if_missing(conn, "users", "title TEXT")
-            _add_column_if_missing(conn, "users", "phone TEXT")
-            _add_column_if_missing(conn, "users", "status TEXT NOT NULL DEFAULT 'ACTIVE'")
-            _add_column_if_missing(conn, "users", "email_verified INTEGER NOT NULL DEFAULT 0")
-            _add_column_if_missing(conn, "users", "verified_at TEXT")
-            _add_column_if_missing(conn, "users", "last_login_at TEXT")
-            _add_column_if_missing(conn, "users", "created_at TEXT")
-            _add_column_if_missing(conn, "users", "profile_image_path TEXT")
-            _add_column_if_missing(conn, "users", "auth_provider TEXT NOT NULL DEFAULT 'local'")
-            _add_column_if_missing(conn, "users", "google_sub TEXT")
-            _add_column_if_missing(conn, "users", "updated_at TEXT")
+
+        # Keep users schema consistent for both fresh and existing databases.
+        _add_column_if_missing(conn, "users", "organization_id INTEGER")
+        _add_column_if_missing(conn, "users", "full_name TEXT")
+        _add_column_if_missing(conn, "users", "email TEXT")
+        _add_column_if_missing(conn, "users", "password_hash TEXT")
+        _add_column_if_missing(conn, "users", "role TEXT NOT NULL DEFAULT 'OWNER'")
+        _add_column_if_missing(conn, "users", "title TEXT")
+        _add_column_if_missing(conn, "users", "phone TEXT")
+        _add_column_if_missing(conn, "users", "status TEXT NOT NULL DEFAULT 'ACTIVE'")
+        _add_column_if_missing(conn, "users", "email_verified INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(conn, "users", "verified_at TEXT")
+        _add_column_if_missing(conn, "users", "last_login_at TEXT")
+        _add_column_if_missing(conn, "users", "created_at TEXT")
+        _add_column_if_missing(conn, "users", "profile_image_path TEXT")
+        _add_column_if_missing(conn, "users", "auth_provider TEXT NOT NULL DEFAULT 'local'")
+        _add_column_if_missing(conn, "users", "google_sub TEXT")
+        _add_column_if_missing(conn, "users", "updated_at TEXT")
 
         if not _table_exists(conn, "user_tokens"):
             cur.execute(
