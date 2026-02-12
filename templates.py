@@ -78,56 +78,62 @@ def create_template(
     redacted_fields: str | None = None,
 ) -> int:
     created_by = (created_by or "System").strip() or "System"
+    cols = set(_table_columns("survey_templates"))
+    now = _now()
+    values_map = {
+        "name": name.strip(),
+        "description": description.strip(),
+        "is_active": int(is_active),
+        "created_at": now,
+        "created_by": created_by,
+        "updated_at": now,
+        "source": (source or "manual").strip().lower(),
+        "assignment_mode": (assignment_mode or "INHERIT").strip().upper(),
+        "template_version": (template_version or "v1").strip(),
+        "enable_consent": int(enable_consent),
+        "enable_attestation": int(enable_attestation),
+        "is_sensitive": int(is_sensitive),
+        "restricted_exports": int(restricted_exports),
+        "redacted_fields": (redacted_fields or "").strip() or None,
+        "require_enumerator_code": int(require_enumerator_code),
+        "enable_gps": int(enable_gps),
+        "enable_coverage": int(enable_coverage),
+        "coverage_scheme_id": coverage_scheme_id,
+        "project_id": project_id,
+    }
+    insert_cols = [c for c in values_map.keys() if c in cols]
+    if not insert_cols:
+        raise RuntimeError("survey_templates schema is not initialized.")
+    placeholders = ", ".join(["?"] * len(insert_cols))
+    sql = f"INSERT INTO survey_templates ({', '.join(insert_cols)}) VALUES ({placeholders})"
+    insert_values = tuple(values_map[c] for c in insert_cols)
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO survey_templates
-              (name, description, is_active, created_at, created_by, updated_at, source, assignment_mode,
-               template_version, enable_consent, enable_attestation, is_sensitive, restricted_exports, redacted_fields,
-               require_enumerator_code, enable_gps, enable_coverage, coverage_scheme_id, project_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                name.strip(),
-                description.strip(),
-                int(is_active),
-                _now(),
-                created_by,
-                _now(),
-                (source or "manual").strip().lower(),
-                (assignment_mode or "INHERIT").strip().upper(),
-                (template_version or "v1").strip(),
-                int(enable_consent),
-                int(enable_attestation),
-                int(is_sensitive),
-                int(restricted_exports),
-                (redacted_fields or "").strip() or None,
-                int(require_enumerator_code),
-                int(enable_gps),
-                int(enable_coverage),
-                coverage_scheme_id,
-                project_id,
-            ),
-        )
+        cur.execute(sql, insert_values)
         conn.commit()
         return int(cur.lastrowid)
 
 
 def list_templates(limit: int = 200, project_id: int | None = None) -> List[Tuple]:
-    where = ""
+    cols = set(_table_columns("survey_templates"))
+    where_parts: List[str] = []
     params: List[int] = []
-    if project_id is not None:
-        where = "WHERE project_id=? AND deleted_at IS NULL"
+    if project_id is not None and "project_id" in cols:
+        where_parts.append("project_id=?")
         params.append(int(project_id))
-    else:
-        where = "WHERE deleted_at IS NULL"
+    if "deleted_at" in cols:
+        where_parts.append("deleted_at IS NULL")
+    where = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     params.append(int(limit))
+    created_by_sel = "created_by" if "created_by" in cols else "NULL AS created_by"
+    updated_at_sel = "updated_at" if "updated_at" in cols else "NULL AS updated_at"
+    source_sel = "source" if "source" in cols else "NULL AS source"
+    assignment_mode_sel = "assignment_mode" if "assignment_mode" in cols else "'INHERIT' AS assignment_mode"
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT id, name, description, created_at, created_by, updated_at, source, assignment_mode
+            SELECT id, name, description, created_at, {created_by_sel}, {updated_at_sel}, {source_sel}, {assignment_mode_sel}
             FROM survey_templates
             {where}
             ORDER BY id DESC
@@ -139,12 +145,13 @@ def list_templates(limit: int = 200, project_id: int | None = None) -> List[Tupl
 
 
 def get_template_config(template_id: int) -> Dict:
+    cols = set(_table_columns("survey_templates"))
+    where = "id=?"
+    if "deleted_at" in cols:
+        where += " AND deleted_at IS NULL"
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT * FROM survey_templates WHERE id=? AND deleted_at IS NULL LIMIT 1",
-            (int(template_id),),
-        )
+        cur.execute(f"SELECT * FROM survey_templates WHERE {where} LIMIT 1", (int(template_id),))
         r = cur.fetchone()
         return dict(r) if r else {}
 
@@ -164,20 +171,33 @@ def set_template_config(template_id: int, **kwargs) -> None:
     if "updated_at" in cols:
         fields.append("updated_at=?")
         values.append(_now())
+    where_sql = "id=?"
+    if "deleted_at" in cols:
+        where_sql += " AND deleted_at IS NULL"
     with get_conn() as conn:
         conn.execute(
-            f"UPDATE survey_templates SET {', '.join(fields)} WHERE id=? AND deleted_at IS NULL",
+            f"UPDATE survey_templates SET {', '.join(fields)} WHERE {where_sql}",
             (*values, int(template_id)),
         )
         conn.commit()
 
 
 def soft_delete_template(template_id: int) -> None:
+    cols = set(_table_columns("survey_templates"))
     with get_conn() as conn:
-        conn.execute(
-            "UPDATE survey_templates SET deleted_at=?, updated_at=? WHERE id=?",
-            (_now(), _now(), int(template_id)),
-        )
+        if "deleted_at" in cols:
+            if "updated_at" in cols:
+                conn.execute(
+                    "UPDATE survey_templates SET deleted_at=?, updated_at=? WHERE id=?",
+                    (_now(), _now(), int(template_id)),
+                )
+            else:
+                conn.execute(
+                    "UPDATE survey_templates SET deleted_at=? WHERE id=?",
+                    (_now(), int(template_id)),
+                )
+        else:
+            conn.execute("DELETE FROM survey_templates WHERE id=?", (int(template_id),))
         conn.commit()
 
 
