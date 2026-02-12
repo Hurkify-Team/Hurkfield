@@ -10600,94 +10600,207 @@ def ui_org_users():
     """ if project_selected else ""
 
     html_page = f"""
-    <div class="card">
-      <div class="row" style="justify-content:space-between; align-items:center;">
-        <div>
-          <h1 class="h1">Team members</h1>
-          <div class="muted">Manage roles and approve access requests.</div>
-        </div>
-        <a class="btn" href="/ui">Back to dashboard</a>
-      </div>
-    </div>
+    <style>
+      .team-shell {{
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }}
+      .team-hero {{
+        border: 1px solid rgba(124,58,237,.16);
+        border-radius: 24px;
+        background: radial-gradient(circle at 12% 18%, rgba(124,58,237,.12), transparent 45%),
+                    linear-gradient(165deg, #ffffff, #f6f7ff 62%, #f1f0ff);
+        box-shadow: 0 24px 64px -42px rgba(30, 41, 59, .36);
+        padding: 18px 20px;
+      }}
+      .team-kicker {{
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--primary);
+      }}
+      .team-title {{
+        margin: 6px 0 4px;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1.1;
+      }}
+      .team-subtitle {{
+        color: #5f6b7a;
+        font-size: 14px;
+        margin-bottom: 0;
+      }}
+      .team-shell .card {{
+        margin-top: 0 !important;
+        border: 1px solid rgba(148, 163, 184, .26);
+        border-radius: 20px;
+        background: linear-gradient(180deg, #ffffff, #fbfbff);
+        box-shadow: 0 16px 34px -28px rgba(15,23,42,.35);
+      }}
+      .team-shell h3 {{
+        margin-top: 0;
+      }}
+      .team-shell input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+      .team-shell select,
+      .team-shell textarea {{
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, .42);
+        background: #fff;
+        color: #0f172a;
+        padding: 11px 12px;
+        font-size: 14px;
+        transition: all .2s ease;
+      }}
+      .team-shell input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])::placeholder,
+      .team-shell textarea::placeholder {{
+        color: #94a3b8;
+      }}
+      .team-shell input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):focus,
+      .team-shell select:focus,
+      .team-shell textarea:focus {{
+        outline: none;
+        border-color: rgba(124,58,237,.68);
+        box-shadow: 0 0 0 4px rgba(124,58,237,.13);
+      }}
+      .team-shell .btn {{
+        border-radius: 12px;
+        font-weight: 700;
+      }}
+      .team-shell .btn.btn-primary {{
+        box-shadow: 0 12px 22px -10px rgba(124,58,237,.48);
+      }}
+      .team-alert-success {{
+        border: 1px solid rgba(34,197,94,.35);
+        background: rgba(240,253,244,.85);
+        color: #166534;
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 13px;
+      }}
+      .team-alert-error {{
+        border: 1px solid rgba(239,68,68,.35);
+        background: rgba(254,242,242,.88);
+        color: #991b1b;
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 13px;
+      }}
+      .team-shell .table {{
+        border-radius: 14px;
+        overflow: hidden;
+      }}
+      .team-shell .table thead th {{
+        background: #f8f8ff;
+        border-bottom: 1px solid rgba(148,163,184,.2);
+        color: #475569;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+      }}
+      .team-shell .table tbody tr:hover {{
+        background: rgba(124,58,237,.04);
+      }}
+      .team-shell .status-badge {{
+        white-space: nowrap;
+      }}
+      @media (max-width: 900px) {{
+        .team-title {{ font-size: 24px; }}
+      }}
+    </style>
 
-    {"<div class='card' style='border-color: rgba(46, 204, 113, .35)'><b>Success:</b> " + msg + "</div>" if msg else ""}
-    {"<div class='card' style='border-color: rgba(231, 76, 60, .35)'><b>Error:</b> " + err + "</div>" if err else ""}
-
-    {invite_block}
-
-    {supervisors_block}
-
-    <div class="card" style="margin-top:16px">
-      <div class="row" style="justify-content:space-between; align-items:center;">
-        <div>
-          <h3 style="margin-top:0">Enumerators</h3>
-          <div class="muted">Add enumerators and assign them to a form link.</div>
-        </div>
-        <form method="GET">
-          <select name="project_id" onchange="this.form.submit()">
-            {''.join(project_selector_options)}
-          </select>
-        </form>
-      </div>
-      {("<div class='card' style='margin-top:10px; border-color: rgba(46, 204, 113, .35)'><b>Success:</b> " + enum_msg + "</div>" if enum_msg else "")}
-      {("<div class='card' style='margin-top:10px; border-color: rgba(231, 76, 60, .35)'><b>Error:</b> " + enum_err + "</div>" if enum_err else "")}
-      <form method="POST" class="stack" style="margin-top:12px" id="enumForm">
-        <input type="hidden" name="action" value="create_enumerator" />
-        <div class="row" style="gap:12px; flex-wrap:wrap;">
-          <div style="flex:2; min-width:220px">
-            <label style="font-weight:800">Full name</label>
-            <input name="enum_name" placeholder="Enumerator full name" />
+    <div class="team-shell">
+      <section class="team-hero">
+        <div class="row" style="justify-content:space-between; align-items:flex-start; gap:14px;">
+          <div>
+            <div class="team-kicker">Team operations</div>
+            <h1 class="team-title">Team members</h1>
+            <p class="team-subtitle">Manage invites, supervisors, and enumerator assignments from one clean workspace.</p>
           </div>
-          <div style="flex:2; min-width:220px">
-            <label style="font-weight:800">Email</label>
-            <input name="enum_email" placeholder="email@example.com" />
-          </div>
-          <div style="flex:1; min-width:160px">
-            <label style="font-weight:800">Phone</label>
-            <input name="enum_phone" placeholder="Phone" />
-          </div>
+          <a class="btn" href="/ui">Back to dashboard</a>
         </div>
-        <div class="row" style="gap:12px; flex-wrap:wrap;">
-          <div style="flex:2; min-width:220px">
-            <label style="font-weight:800">Project (optional)</label>
-            <select name="project_id" id="enumProjectSelect">
+      </section>
+
+      {"<div class='team-alert-success'><b>Success:</b> " + msg + "</div>" if msg else ""}
+      {"<div class='team-alert-error'><b>Error:</b> " + err + "</div>" if err else ""}
+
+      {invite_block}
+      {supervisors_block}
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h3 style="margin-bottom:4px;">Enumerators</h3>
+            <div class="muted">Add enumerators and assign them to a project/template flow.</div>
+          </div>
+          <form method="GET">
+            <select name="project_id" onchange="this.form.submit()">
               {''.join(project_selector_options)}
             </select>
-          </div>
-          <div style="flex:2; min-width:220px">
-            <label style="font-weight:800">Assign to template (optional)</label>
-            <select name="template_id">
-              <option value="">Any form</option>
-              {''.join(template_options) if template_options else ""}
-            </select>
-          </div>
-          <div style="flex:1; min-width:160px">
-            <label style="font-weight:800">Target facilities (optional)</label>
-            <div id="enumTargetWrap">
-              <input name="target_facilities_count" placeholder="e.g., 8" />
+          </form>
+        </div>
+        {("<div class='team-alert-success' style='margin-top:10px;'><b>Success:</b> " + enum_msg + "</div>" if enum_msg else "")}
+        {("<div class='team-alert-error' style='margin-top:10px;'><b>Error:</b> " + enum_err + "</div>" if enum_err else "")}
+        <form method="POST" class="stack" style="margin-top:14px" id="enumForm">
+          <input type="hidden" name="action" value="create_enumerator" />
+          <div class="row" style="gap:12px; flex-wrap:wrap;">
+            <div style="flex:2; min-width:220px">
+              <label style="font-weight:800">Full name</label>
+              <input name="enum_name" placeholder="Enumerator full name" />
+            </div>
+            <div style="flex:2; min-width:220px">
+              <label style="font-weight:800">Email</label>
+              <input name="enum_email" placeholder="email@example.com" />
+            </div>
+            <div style="flex:1; min-width:160px">
+              <label style="font-weight:800">Phone</label>
+              <input name="enum_phone" placeholder="Phone" />
             </div>
           </div>
-        </div>
-        <div class="row" style="gap:12px; flex-wrap:wrap;">
-          <div style="flex:2; min-width:220px">
-            <label style="font-weight:800">Coverage label (optional)</label>
-            <div id="enumCoverageWrap">
-              <input name="coverage_label" placeholder="e.g., Mushin LGA" {"disabled" if not project_selected else ""} />
-              {("<div class='muted' style='margin-top:6px'>Coverage is only available for project assignments.</div>" if not project_selected else "")}
+          <div class="row" style="gap:12px; flex-wrap:wrap;">
+            <div style="flex:2; min-width:220px">
+              <label style="font-weight:800">Project (optional)</label>
+              <select name="project_id" id="enumProjectSelect">
+                {''.join(project_selector_options)}
+              </select>
+            </div>
+            <div style="flex:2; min-width:220px">
+              <label style="font-weight:800">Assign to template (optional)</label>
+              <select name="template_id">
+                <option value="">Any form</option>
+                {''.join(template_options) if template_options else ""}
+              </select>
+            </div>
+            <div style="flex:1; min-width:160px">
+              <label style="font-weight:800">Target facilities (optional)</label>
+              <div id="enumTargetWrap">
+                <input name="target_facilities_count" placeholder="e.g., 8" />
+              </div>
             </div>
           </div>
+          <div class="row" style="gap:12px; flex-wrap:wrap;">
+            <div style="flex:2; min-width:220px">
+              <label style="font-weight:800">Coverage label (optional)</label>
+              <div id="enumCoverageWrap">
+                <input name="coverage_label" placeholder="e.g., Mushin LGA" {"disabled" if not project_selected else ""} />
+                {("<div class='muted' style='margin-top:6px'>Coverage is only available for project assignments.</div>" if not project_selected else "")}
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit">Create enumerator</button>
+        </form>
+        <div style="margin-top:12px">
+          {(
+            "<table class='table'><thead><tr><th style=\"width:90px\">ID</th><th>Enumerator</th><th style=\"width:200px\">Template</th><th style=\"width:200px\">Assignment code</th><th style=\"width:140px\">Target</th><th style=\"width:160px\">Created</th><th style=\"width:140px\">Actions</th></tr></thead><tbody>" + "".join(enum_rows) + "</tbody></table>"
+            if enum_rows else "<div class='muted' style='padding:8px 0'>No enumerators yet.</div>"
+          )}
         </div>
-        <button class="btn btn-primary" type="submit">Create enumerator</button>
-      </form>
-      <div style="margin-top:12px">
-        {(
-          "<table class='table'><thead><tr><th style=\"width:90px\">ID</th><th>Enumerator</th><th style=\"width:200px\">Template</th><th style=\"width:200px\">Assignment code</th><th style=\"width:140px\">Target</th><th style=\"width:160px\">Created</th><th style=\"width:140px\">Actions</th></tr></thead><tbody>" + "".join(enum_rows) + "</tbody></table>"
-          if enum_rows else ""
-        )}
       </div>
-    </div>
 
-    {members_block}
+      {members_block}
+    </div>
     <script>
       (function(){{
         const toast = document.getElementById("toast");
@@ -10972,7 +11085,7 @@ def ui_adoption():
       <ul class="doc-links" style="margin-top:12px">{positioning_links}</ul>
     </div>
     """
-    return ui_shell("Adoption", html, show_project_switcher=False)
+    return ui_shell("Adoption", html_page, show_project_switcher=False)
 
 
 @app.route("/ui/projects", methods=["GET"])
@@ -14647,7 +14760,7 @@ def ui_assignment_facilities(project_id, assignment_id):
             """
         )
 
-    html = f"""
+    html_page = f"""
     <div class="card">
       <div class="row" style="justify-content:space-between; align-items:center;">
         <div>
@@ -21579,37 +21692,52 @@ def ui_errors():
     project_id = request.args.get("project_id") or ""
     project_id = int(project_id) if str(project_id).isdigit() else None
 
-    where = ""
-    params: list = []
-    if project_id is not None:
-        where = "WHERE e.project_id=?"
-        params.append(int(project_id))
-
-    with get_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            f"""
-            SELECT
-              e.id,
-              e.project_id,
-              p.name AS project_name,
-              e.template_id,
-              t.name AS template_name,
-              e.survey_id,
-              e.error_type,
-              e.error_message,
-              e.context_json,
-              e.created_at
-            FROM submission_errors e
-            LEFT JOIN projects p ON p.id = e.project_id
-            LEFT JOIN survey_templates t ON t.id = e.template_id
-            {where}
-            ORDER BY e.id DESC
-            LIMIT 200
-            """,
-            tuple(params),
-        )
-        rows = cur.fetchall()
+    load_note = ""
+    rows = []
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='submission_errors' LIMIT 1")
+            if not cur.fetchone():
+                load_note = "Submission error log table is not initialized yet."
+            else:
+                cols = [r["name"] for r in conn.execute("PRAGMA table_info(submission_errors)").fetchall()]
+                select_cols = [
+                    "e.id",
+                    ("e.project_id" if "project_id" in cols else "NULL AS project_id"),
+                    ("e.template_id" if "template_id" in cols else "NULL AS template_id"),
+                    ("e.survey_id" if "survey_id" in cols else "NULL AS survey_id"),
+                    ("e.error_type" if "error_type" in cols else "'system' AS error_type"),
+                    ("e.error_message" if "error_message" in cols else "'Unknown error' AS error_message"),
+                    ("e.context_json" if "context_json" in cols else "NULL AS context_json"),
+                    ("e.created_at" if "created_at" in cols else "NULL AS created_at"),
+                    ("p.name AS project_name" if "project_id" in cols else "NULL AS project_name"),
+                    ("t.name AS template_name" if "template_id" in cols else "NULL AS template_name"),
+                ]
+                joins = []
+                where = ""
+                params: list = []
+                if "project_id" in cols:
+                    joins.append("LEFT JOIN projects p ON p.id = e.project_id")
+                if "template_id" in cols:
+                    joins.append("LEFT JOIN survey_templates t ON t.id = e.template_id")
+                if project_id is not None and "project_id" in cols:
+                    where = "WHERE e.project_id=?"
+                    params.append(int(project_id))
+                cur.execute(
+                    f"""
+                    SELECT {", ".join(select_cols)}
+                    FROM submission_errors e
+                    {' '.join(joins)}
+                    {where}
+                    ORDER BY e.id DESC
+                    LIMIT 200
+                    """,
+                    tuple(params),
+                )
+                rows = cur.fetchall()
+    except Exception as e:
+        load_note = f"Could not load submission errors: {str(e)}"
 
     trs = []
     for r in rows:
@@ -21680,6 +21808,7 @@ def ui_errors():
     </div>
 
     <div class="card" style="margin-top:16px;">
+      {f"<div class='muted' style='margin-bottom:10px'>{html.escape(load_note)}</div>" if load_note else ""}
       <table class="table">
         <thead>
           <tr>
@@ -21697,7 +21826,7 @@ def ui_errors():
       </table>
     </div>
     """
-    return ui_shell("Submission Errors", html)
+    return ui_shell("Submission Errors", html_page)
 
 
 # ---------------------------

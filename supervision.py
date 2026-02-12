@@ -908,7 +908,23 @@ def enumerator_performance(
     date_from: str = "",
     date_to: str = "",
 ) -> List[Dict[str, Any]]:
+    if not _surveys_has("project_id"):
+        return []
+
     pid = int(project_id)
+    has_gps_missing_flag = _surveys_has("gps_missing_flag")
+    has_duplicate_flag = _surveys_has("duplicate_flag")
+    has_gps_lat = _surveys_has("gps_lat")
+
+    qa_parts: List[str] = []
+    if has_gps_missing_flag:
+        qa_parts.append("COALESCE(gps_missing_flag,0)=1")
+    if has_duplicate_flag:
+        qa_parts.append("COALESCE(duplicate_flag,0)=1")
+    qa_expr = " OR ".join(qa_parts) if qa_parts else "0=1"
+    gps_ok_expr = "COALESCE(gps_missing_flag,0)=0" if has_gps_missing_flag else "1=1"
+    gps_lat_expr = "gps_lat IS NOT NULL" if has_gps_lat else "0=1"
+
     where = ["project_id=?", "enumerator_name IS NOT NULL", "enumerator_name<>''"]
     params: List[Any] = [pid]
     if template_id is not None and _surveys_has("template_id"):
@@ -934,10 +950,10 @@ def enumerator_performance(
               SUM(CASE WHEN status!='COMPLETED' THEN 1 ELSE 0 END) AS drafts_total,
               SUM(CASE WHEN date(created_at)=date('now','localtime') AND status='COMPLETED' THEN 1 ELSE 0 END) AS completed_today,
               SUM(CASE WHEN date(created_at)>=date('now','localtime','-{int(days)} day') AND status='COMPLETED' THEN 1 ELSE 0 END) AS completed_recent,
-              SUM(CASE WHEN COALESCE(gps_missing_flag,0)=1 OR COALESCE(duplicate_flag,0)=1 THEN 1 ELSE 0 END) AS qa_flags,
+              SUM(CASE WHEN ({qa_expr}) THEN 1 ELSE 0 END) AS qa_flags,
               AVG(CASE WHEN status='COMPLETED' AND completed_at IS NOT NULL AND created_at IS NOT NULL
                 THEN (julianday(completed_at) - julianday(created_at)) * 1440.0 ELSE NULL END) AS avg_completion_minutes,
-              SUM(CASE WHEN status='COMPLETED' AND COALESCE(gps_missing_flag,0)=0 AND gps_lat IS NOT NULL THEN 1 ELSE 0 END) AS gps_captured,
+              SUM(CASE WHEN status='COMPLETED' AND ({gps_ok_expr}) AND ({gps_lat_expr}) THEN 1 ELSE 0 END) AS gps_captured,
               SUM(CASE WHEN status='COMPLETED' THEN 1 ELSE 0 END) AS completed_for_gps
             FROM surveys
             WHERE {where_sql}
