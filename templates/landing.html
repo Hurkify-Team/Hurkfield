@@ -128,35 +128,37 @@
     .hero-delay-2 { animation-delay: .2s; }
     .hero-delay-3 { animation-delay: .34s; }
     .hero-ink {
-      display: inline-block;
-      background: linear-gradient(120deg, #5B21B6 0%, #7C3AED 28%, #8B5CF6 52%, #4F46E5 78%, #A78BFA 100%);
-      background-size: 240% 240%;
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      -webkit-text-fill-color: transparent;
-      animation: heroGradient 8s ease-in-out infinite;
+      color: #4C1D95;
+      letter-spacing: -0.01em;
     }
     .hero-ink-strong {
-      text-shadow: 0 8px 24px rgba(124, 58, 237, 0.28);
-      animation: heroGradient 8s ease-in-out infinite, heroPulse 2.8s ease-in-out infinite;
+      color: #6D28D9;
     }
     @keyframes heroReveal {
       from { opacity: 0; transform: translateY(14px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    @keyframes heroGradient {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    @keyframes heroPulse {
-      0%, 100% { filter: drop-shadow(0 0 0 rgba(124,58,237,0)); }
-      50% { filter: drop-shadow(0 6px 18px rgba(124,58,237,0.38)); }
+    @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+      .hero-ink {
+        background: linear-gradient(110deg, #5B21B6 0%, #7C3AED 45%, #8B5CF6 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+      }
+      body.theme-dark .hero-ink {
+        background: linear-gradient(110deg, #DDD6FE 0%, #C4B5FD 45%, #A78BFA 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+      }
     }
     body.theme-dark .hero-ink {
-      background: linear-gradient(120deg, #C4B5FD 0%, #A78BFA 28%, #DDD6FE 52%, #818CF8 78%, #C4B5FD 100%);
-      background-size: 240% 240%;
+      color: #DDD6FE;
+    }
+    body.theme-dark .hero-ink-strong {
+      color: #C4B5FD;
     }
   </style>
 </head>
