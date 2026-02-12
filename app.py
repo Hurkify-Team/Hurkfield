@@ -595,7 +595,8 @@ def ui_shell(
                 <a href="{home_href}" class="brand" aria-label="{UI_BRAND['name']} home">
                   <img src="{UI_BRAND.get('logo','/static/logos/hurkfield.jpeg')}" alt="{UI_BRAND['name']} logo" style="height:56px; width:auto; max-width:210px; object-fit:contain; border-radius:14px; display:block;" />
                 </a>
-                <div class="nav-actions">
+                <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-expanded="false" aria-controls="mainNavActions">Menu</button>
+                <div class="nav-actions" id="mainNavActions">
                   <a class="btn" href="{home_href}">{'Home'}</a>
                   <a class="btn" href="/ui{key_q}">{'Dashboard'}</a>
                   <a class="btn" href="/ui/projects{key_q}">{'Projects'}</a>
@@ -776,7 +777,7 @@ def ui_shell(
               border-bottom:1px solid var(--border);
             }}
             html[data-theme="dark"] .nav{{background:rgba(221,212,248,.9)}}
-            .nav-inner{{display:grid; grid-template-columns:auto 1fr; align-items:center; gap:16px; padding:18px 0}}
+            .nav-inner{{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:16px; padding:18px 0}}
             .nav-inner.nav-minimal{{display:flex; justify-content:flex-end}}
             .brand{{display:flex; align-items:center; cursor:pointer; transition:all 0.3s ease; text-decoration:none; padding:8px 0; margin-right:16px; position:relative}}
             .brand::after{{content:""; position:absolute; right:-8px; top:50%; transform:translateY(-50%); width:1px; height:24px; background:var(--border); opacity:.7}}
@@ -800,6 +801,8 @@ def ui_shell(
             .nav-dropbtn{{display:inline-flex; align-items:center; gap:6px}}
             .nav-panel{{position:absolute; top:42px; left:0; min-width:190px; padding:6px; border:1px solid var(--border); background:var(--surface); border-radius:14px; box-shadow:var(--shadow); display:none; z-index:75}}
             .nav-dropdown.open .nav-panel{{display:block}}
+            .mobile-nav-toggle{{display:none; align-items:center; justify-content:center; gap:6px; min-width:42px; height:40px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-weight:700; padding:0 12px; cursor:pointer}}
+            .mobile-nav-toggle:hover{{border-color:var(--primary); color:var(--primary)}}
             .nav-panel a{{display:block; padding:9px 10px; border-radius:10px; font-weight:600; font-size:12px; color:var(--text)}}
             .nav-panel a:hover{{background:var(--surface-2); color:var(--primary)}}
             .profile-menu{{position:relative; margin-left:0}}
@@ -929,18 +932,94 @@ def ui_shell(
               padding:10px 12px;
             }}
             textarea{{min-height:90px}}
-            @media (max-width: 900px){{
-              .nav-inner{{display:flex; flex-direction:column; align-items:flex-start; gap:14px}}
-              .nav-actions{{justify-content:center}}
+            @media (max-width: 1100px){{
+              .nav-inner{{display:grid; grid-template-columns:1fr auto; gap:12px}}
               .brand::after{{display:none}}
+              .mobile-nav-toggle{{display:inline-flex}}
+              .nav-actions{{
+                grid-column:1/-1;
+                display:none;
+                flex-direction:column;
+                align-items:stretch;
+                width:100%;
+                gap:10px;
+                padding-top:8px;
+              }}
+              .nav-actions.open{{display:flex}}
+              .nav-actions > .btn,
+              .nav-actions > .nav-dropdown,
+              .nav-actions > .proj-switcher,
+              .nav-actions > .env-badge,
+              .nav-actions > .toggle,
+              .nav-actions > .profile-menu{{width:100%}}
+              .nav-actions .btn{{width:100%; justify-content:center; padding:10px 12px; font-size:13px}}
+              .nav-dropdown .nav-dropbtn{{width:100%; justify-content:center}}
+              .nav-dropdown.open .nav-panel{{position:static; margin-top:6px; width:100%}}
+              .nav-panel a{{padding:10px}}
+              .proj-switcher{{justify-content:space-between}}
+              .profile-menu{{display:block}}
+              .profile-trigger{{width:100%; justify-content:center; border-radius:12px; padding:8px 10px}}
+              .profile-panel{{position:static; width:100%; margin-top:8px}}
               .h1{{font-size:28px}}
             }}
             @media (max-width: 700px){{
               .container{{padding:0 16px}}
-              .nav-actions .btn{{padding:7px 10px; font-size:11px}}
-              .table{{display:block; width:100%; overflow-x:auto}}
+              .nav{{position:sticky}}
+              .nav-inner{{padding:14px 0}}
+              .brand img{{height:46px; max-width:180px}}
+              .mobile-nav-toggle{{height:38px; padding:0 10px; font-size:12px}}
+              .table thead{{display:none}}
+              .table,
+              .table tbody,
+              .table tr,
+              .table td{{display:block; width:100%}}
+              .table tr{{
+                border:1px solid var(--border);
+                border-radius:12px;
+                padding:8px 10px;
+                margin-bottom:10px;
+                background:var(--surface);
+              }}
+              .table td{{
+                display:flex;
+                align-items:flex-start;
+                justify-content:space-between;
+                gap:10px;
+                padding:8px 0;
+                border-bottom:1px dashed var(--border);
+                white-space:normal;
+                word-break:break-word;
+              }}
+              .table td:last-child{{border-bottom:none}}
+              .table td::before{{
+                content:attr(data-label);
+                font-weight:700;
+                color:var(--muted);
+                min-width:108px;
+                max-width:45%;
+                font-size:12px;
+                line-height:1.35;
+              }}
+              .table td .row,
+              .table td .action-buttons,
+              .table td .assign-actions{{justify-content:flex-start; width:100%}}
+              .table td .btn{{font-size:12px}}
               .row{{gap:10px}}
               .card{{padding:16px}}
+              input[type="text"],
+              input[type="email"],
+              input[type="password"],
+              input[type="number"],
+              input[type="tel"],
+              input[type="url"],
+              input[type="search"],
+              input[type="date"],
+              input[type="time"],
+              input[type="datetime-local"],
+              input[type="month"],
+              input[type="week"],
+              textarea,
+              select{{font-size:16px}}
             }}
             .scroll-fab{{
               position:fixed;
@@ -981,6 +1060,8 @@ def ui_shell(
           <script>
             const root = document.documentElement;
             const toggle = document.getElementById("themeToggle");
+            const mobileNavToggle = document.getElementById("mobileNavToggle");
+            const mainNavActions = document.getElementById("mainNavActions");
             const switcher = document.getElementById("projectSwitcher");
             const profileRoot = document.getElementById("profileMenuRoot");
             const profileToggle = document.getElementById("profileMenuToggle");
@@ -997,6 +1078,40 @@ def ui_shell(
               toggle.onclick = () => {{
                 setTheme(root.getAttribute("data-theme")==="dark" ? "light" : "dark");
               }};
+            }}
+
+            function setMobileNav(open){{
+              if(!mainNavActions || !mobileNavToggle) return;
+              if(open){{
+                mainNavActions.classList.add("open");
+                mobileNavToggle.setAttribute("aria-expanded", "true");
+                mobileNavToggle.textContent = "Close";
+              }} else {{
+                mainNavActions.classList.remove("open");
+                mobileNavToggle.setAttribute("aria-expanded", "false");
+                mobileNavToggle.textContent = "Menu";
+              }}
+            }}
+            if(mobileNavToggle && mainNavActions){{
+              mobileNavToggle.addEventListener("click", (e)=>{{
+                e.stopPropagation();
+                const willOpen = !mainNavActions.classList.contains("open");
+                setMobileNav(willOpen);
+              }});
+              mainNavActions.querySelectorAll("a").forEach((el)=>{{
+                el.addEventListener("click", ()=>{{
+                  if(window.innerWidth <= 1100) setMobileNav(false);
+                }});
+              }});
+              document.addEventListener("click", (e)=>{{
+                if(window.innerWidth > 1100) return;
+                if(!mainNavActions.contains(e.target) && !mobileNavToggle.contains(e.target)){{
+                  setMobileNav(false);
+                }}
+              }});
+              window.addEventListener("resize", ()=>{{
+                if(window.innerWidth > 1100) setMobileNav(false);
+              }});
             }}
             if(profileRoot && profileToggle){{
               profileToggle.addEventListener("click", (e)=>{{
@@ -1085,6 +1200,22 @@ def ui_shell(
               btn.innerText = ok ? "Copied" : "Copy failed";
               setTimeout(()=>{{ btn.innerText = original; }}, 1200);
             }});
+
+            (function(){{
+              const tables = Array.from(document.querySelectorAll(".table"));
+              tables.forEach((table)=>{{
+                const headers = Array.from(table.querySelectorAll("thead th")).map((th)=>((th.innerText || "").trim()));
+                const bodyRows = Array.from(table.querySelectorAll("tbody tr"));
+                bodyRows.forEach((row)=>{{
+                  const cells = Array.from(row.children).filter((el)=>el.tagName === "TD");
+                  cells.forEach((cell, idx)=>{{
+                    if(cell.hasAttribute("data-label")) return;
+                    const label = headers[idx] || `Field ${{idx + 1}}`;
+                    cell.setAttribute("data-label", label);
+                  }});
+                }});
+              }});
+            }})();
 
             (function(){{
               const fab = document.getElementById("scrollFab");
@@ -1776,7 +1907,21 @@ def _password_is_valid(pw: str) -> bool:
 
 
 def _oauth_env(key: str) -> str:
-    return (os.environ.get(key) or "").strip()
+    """
+    Read OAuth env values with backward-compatible key aliases.
+    Supports OPENFIELD_* and HURKFIELD_* namespaces, plus common generic keys.
+    """
+    candidates = [key]
+    if key.startswith("OPENFIELD_"):
+        suffix = key[len("OPENFIELD_"):]
+        candidates.append(f"HURKFIELD_{suffix}")
+        # Generic fallback (e.g. GOOGLE_OAUTH_CLIENT_ID)
+        candidates.append(suffix)
+    for cand in candidates:
+        val = (os.environ.get(cand) or "").strip()
+        if val:
+            return val
+    return ""
 
 
 def _token_hash(raw: str) -> str:
@@ -3138,8 +3283,14 @@ def auth_provider(provider):
         session["oauth_link_user_id"] = int(user.get("id"))
     client = oauth.create_client(provider)
     if not client:
+        env_hint = {
+            "google": "OPENFIELD_GOOGLE_OAUTH_CLIENT_ID / OPENFIELD_GOOGLE_OAUTH_CLIENT_SECRET (or HURKFIELD_* equivalents)",
+            "microsoft": "OPENFIELD_MICROSOFT_OAUTH_CLIENT_ID / OPENFIELD_MICROSOFT_OAUTH_CLIENT_SECRET (or HURKFIELD_* equivalents)",
+            "linkedin": "OPENFIELD_LINKEDIN_OAUTH_CLIENT_ID / OPENFIELD_LINKEDIN_OAUTH_CLIENT_SECRET (or HURKFIELD_* equivalents)",
+            "facebook": "OPENFIELD_FACEBOOK_OAUTH_CLIENT_ID / OPENFIELD_FACEBOOK_OAUTH_CLIENT_SECRET (or HURKFIELD_* equivalents)",
+        }
         return (
-            f"<h2>OAuth not configured</h2><p>{html.escape(provider.title())} sign-in is not configured yet. Add OAuth credentials in environment variables to enable.</p>",
+            f"<h2>OAuth not configured</h2><p>{html.escape(provider.title())} sign-in is not configured yet. Set: <code>{html.escape(env_hint.get(provider, 'provider OAuth client ID/secret env vars'))}</code>.</p>",
             501,
         )
     redirect_uri = url_for("auth_callback", provider=provider, _external=True)
@@ -3181,8 +3332,14 @@ def auth_callback(provider):
         )
     client = oauth.create_client(provider)
     if not client:
+        env_hint = {
+            "google": "OPENFIELD_GOOGLE_OAUTH_CLIENT_ID / OPENFIELD_GOOGLE_OAUTH_CLIENT_SECRET (or HURKFIELD_* equivalents)",
+            "microsoft": "OPENFIELD_MICROSOFT_OAUTH_CLIENT_ID / OPENFIELD_MICROSOFT_OAUTH_CLIENT_SECRET (or HURKFIELD_* equivalents)",
+            "linkedin": "OPENFIELD_LINKEDIN_OAUTH_CLIENT_ID / OPENFIELD_LINKEDIN_OAUTH_CLIENT_SECRET (or HURKFIELD_* equivalents)",
+            "facebook": "OPENFIELD_FACEBOOK_OAUTH_CLIENT_ID / OPENFIELD_FACEBOOK_OAUTH_CLIENT_SECRET (or HURKFIELD_* equivalents)",
+        }
         return (
-            f"<h2>OAuth not configured</h2><p>{html.escape(provider.title())} sign-in is not configured yet.</p>",
+            f"<h2>OAuth not configured</h2><p>{html.escape(provider.title())} sign-in is not configured yet. Set: <code>{html.escape(env_hint.get(provider, 'provider OAuth client ID/secret env vars'))}</code>.</p>",
             501,
         )
     try:
