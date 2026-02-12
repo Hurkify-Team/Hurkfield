@@ -3851,24 +3851,27 @@ def share_path_for_template_row(template_row, token: str) -> str:
 def get_template_by_token(token: str):
     if "share_token" not in templates_cols():
         return None
+    has_deleted = "deleted_at" in templates_cols()
+    sql = "SELECT * FROM survey_templates WHERE share_token=?"
+    if has_deleted:
+        sql += " AND deleted_at IS NULL"
+    sql += " LIMIT 1"
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT * FROM survey_templates WHERE share_token=? AND deleted_at IS NULL LIMIT 1",
-            (token,),
-        )
+        cur.execute(sql, (token,))
         return cur.fetchone()
 
 
 def template_submissions_count(template_id: int) -> int:
     if "template_id" not in surveys_cols():
         return 0
+    has_deleted = "deleted_at" in surveys_cols()
+    sql = "SELECT COUNT(*) AS c FROM surveys WHERE template_id=?"
+    if has_deleted:
+        sql += " AND deleted_at IS NULL"
     with get_conn() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT COUNT(*) AS c FROM surveys WHERE template_id=? AND deleted_at IS NULL",
-            (int(template_id),),
-        )
+        cur.execute(sql, (int(template_id),))
         r = cur.fetchone()
         return int(r["c"] or 0)
 
