@@ -10177,6 +10177,46 @@ def ui_org_users():
         template_options.append(f"<option value='{tid}'>{html.escape(tname or 'Template')}</option>")
 
     template_only_project_id = prj.get_template_only_project_id(org_id)
+    bulk_msg = ""
+    bulk_err = ""
+    bulk_preview_rows: List[Dict[str, str]] = []
+    bulk_form: Dict[str, str] = {
+        "role": "ENUMERATOR",
+        "source": "paste",
+        "project_id": "",
+        "template_id": "",
+        "text": "",
+    }
+    if project_selected and project_id is not None:
+        bulk_form["project_id"] = str(project_id)
+
+    def _bulk_norm_key(label: str) -> str:
+        key = re.sub(r"[^a-z0-9]+", "", (label or "").strip().lower())
+        aliases = {
+            "name": "full_name",
+            "fullname": "full_name",
+            "enumeratorname": "full_name",
+            "supervisorname": "full_name",
+            "emailaddress": "email",
+            "phonenumber": "phone",
+            "phone": "phone",
+            "mobile": "phone",
+            "code": "access_key",
+            "accesskey": "access_key",
+            "key": "access_key",
+            "project": "project_id",
+            "projectid": "project_id",
+            "template": "template_id",
+            "templateid": "template_id",
+            "formid": "template_id",
+            "coverage": "coverage_label",
+            "coveragelabel": "coverage_label",
+            "target": "target_facilities_count",
+            "targetfacilities": "target_facilities_count",
+            "targetfacilitiescount": "target_facilities_count",
+            "targetcount": "target_facilities_count",
+        }
+        return aliases.get(key, key)
 
     if request.method == "POST":
         if not can_manage_team:
@@ -10186,11 +10226,222 @@ def ui_org_users():
             target_id = request.form.get("user_id") or ""
             target_id = int(target_id) if str(target_id).isdigit() else None
             if not target_id:
-                if action not in ("invite", "invite_resend", "invite_revoke", "create_supervisor", "create_enumerator"):
+                if action not in ("invite", "invite_resend", "invite_revoke", "create_supervisor", "create_enumerator", "bulk_import_team"):
                     raise ValueError("Missing user.")
             if action in ("approve", "deactivate", "role", "invite", "invite_resend", "invite_revoke", "create_supervisor", "toggle_supervisor") and not project_selected:
                 raise ValueError("Select a project to manage supervisors and team roles.")
-            if action == "approve":
+            if action == "bulk_import_team":
+                bulk_form["role"] = (request.form.get("bulk_role") or "ENUMERATOR").strip().upper()
+                if bulk_form["role"] not in ("SUPERVISOR", "ENUMERATOR"):
+                    bulk_form["role"] = "ENUMERATOR"
+                bulk_form["source"] = (request.form.get("bulk_source") or "paste").strip().lower()
+                if bulk_form["source"] not in ("paste", "csv"):
+                    bulk_form["source"] = "paste"
+                bulk_form["project_id"] = (request.form.get("bulk_project_id") or "").strip()
+                bulk_form["template_id"] = (request.form.get("bulk_template_id") or "").strip()
+                bulk_form["text"] = (request.form.get("bulk_text") or "").strip()
+                bulk_submit = (request.form.get("bulk_submit") or "preview").strip().lower()
+                do_import = bulk_submit == "import"
+
+                raw_payload = ""
+                if bulk_form["source"] == "csv":
+                    up = request.files.get("bulk_file")
+                    if not up or not (up.filename or "").strip():
+                        raise ValueError("Upload a CSV file for bulk import.")
+                    raw_bytes = up.read()
+                    if not raw_bytes:
+                        raise ValueError("Uploaded CSV file is empty.")
+                    raw_payload = raw_bytes.decode("utf-8-sig", errors="replace")
+                else:
+                    raw_payload = bulk_form["text"]
+
+                raw_payload = (raw_payload or "").replace("\r\n", "\n").strip()
+                if not raw_payload:
+                    raise ValueError("Bulk import input is empty.")
+
+                bulk_project_id = int(bulk_form["project_id"]) if bulk_form["project_id"].isdigit() else None
+                bulk_template_id = int(bulk_form["template_id"]) if bulk_form["template_id"].isdigit() else None
+                if bulk_form["role"] == "SUPERVISOR" and bulk_project_id is None:
+                    raise ValueError("Supervisor import requires a selected project.")
+
+                lines = [ln for ln in raw_payload.split("\n") if ln.strip()]
+                if not lines:
+                    raise ValueError("No data rows found in bulk input.")
+
+                sample_line = lines[0]
+                delimiter = ","
+                for cand in [",", "\t", ";", "|"]:
+                    if cand in sample_line:
+                        delimiter = cand
+                        break
+                parsed_rows = list(csv.reader(io.StringIO("\n".join(lines)), delimiter=delimiter))
+                if not parsed_rows:
+                    raise ValueError("Unable to parse bulk input.")
+
+                known_keys = {
+                    "full_name", "email", "phone", "access_key",
+                    "project_id", "template_id", "coverage_label", "target_facilities_count"
+                }
+                header_keys = [_bulk_norm_key(c) for c in parsed_rows[0]]
+                has_header = any(k in known_keys for k in header_keys)
+
+                row_items: List[tuple[int, Dict[str, str]]] = []
+                if has_header:
+                    header = [_bulk_norm_key(c) for c in parsed_rows[0]]
+                    for ln_no, cells in enumerate(parsed_rows[1:], start=2):
+                        if not any((c or "").strip() for c in cells):
+                            continue
+                        item: Dict[str, str] = {}
+                        for idx, val in enumerate(cells):
+                            if idx >= len(header):
+                                continue
+                            key = header[idx]
+                            if key:
+                                item[key] = (val or "").strip()
+                        row_items.append((ln_no, item))
+                else:
+                    for ln_no, cells in enumerate(parsed_rows, start=1):
+                        vals = [(c or "").strip() for c in cells]
+                        if not any(vals):
+                            continue
+                        item: Dict[str, str] = {
+                            "full_name": vals[0] if len(vals) > 0 else "",
+                            "email": vals[1] if len(vals) > 1 else "",
+                            "phone": vals[2] if len(vals) > 2 else "",
+                        }
+                        if bulk_form["role"] == "SUPERVISOR":
+                            item["access_key"] = vals[3] if len(vals) > 3 else ""
+                        else:
+                            item["target_facilities_count"] = vals[3] if len(vals) > 3 else ""
+                            item["coverage_label"] = vals[4] if len(vals) > 4 else ""
+                            item["template_id"] = vals[5] if len(vals) > 5 else ""
+                            item["project_id"] = vals[6] if len(vals) > 6 else ""
+                        row_items.append((ln_no, item))
+
+                if not row_items:
+                    raise ValueError("No importable rows found.")
+
+                imported_count = 0
+                skipped_count = 0
+                valid_count = 0
+                existing_sup_keys = set()
+                with get_conn() as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT access_key FROM supervisors WHERE organization_id=?", (int(org_id),))
+                    existing_sup_keys = {(r["access_key"] or "").strip() for r in cur.fetchall() if (r["access_key"] or "").strip()}
+
+                def _gen_sup_key() -> str:
+                    for _ in range(20):
+                        k = "sup_" + secrets.token_urlsafe(6).replace("-", "").replace("_", "").lower()
+                        if k not in existing_sup_keys:
+                            existing_sup_keys.add(k)
+                            return k
+                    raise ValueError("Could not generate unique supervisor access key.")
+
+                for ln_no, item in row_items:
+                    full_name = (item.get("full_name") or "").strip()
+                    email = (item.get("email") or "").strip()
+                    phone = (item.get("phone") or "").strip()
+                    row_result = "READY"
+                    row_detail = ""
+                    try:
+                        if not full_name:
+                            raise ValueError("Missing full_name.")
+
+                        if bulk_form["role"] == "SUPERVISOR":
+                            access_key = (item.get("access_key") or "").strip() or _gen_sup_key()
+                            if access_key in existing_sup_keys and (item.get("access_key") or "").strip():
+                                raise ValueError("Duplicate access_key.")
+                            existing_sup_keys.add(access_key)
+                            valid_count += 1
+                            if do_import:
+                                prj.create_supervisor(
+                                    full_name=full_name,
+                                    organization_id=int(org_id),
+                                    email=email,
+                                    phone=phone,
+                                    access_key=access_key,
+                                    status="ACTIVE",
+                                )
+                                imported_count += 1
+                                row_result = "IMPORTED"
+                            row_detail = access_key
+                        else:
+                            row_project_id = int(item.get("project_id")) if str(item.get("project_id") or "").isdigit() else bulk_project_id
+                            row_template_id = int(item.get("template_id")) if str(item.get("template_id") or "").isdigit() else bulk_template_id
+                            if row_project_id is None and row_template_id is None:
+                                raise ValueError("Needs project_id or template_id.")
+                            if row_project_id is not None and not prj.get_project(int(row_project_id)):
+                                raise ValueError("Invalid project_id.")
+                            if row_template_id is not None and not tpl.get_template_config(int(row_template_id)):
+                                raise ValueError("Invalid template_id.")
+                            target_raw = (item.get("target_facilities_count") or "").strip()
+                            target_count = int(target_raw) if target_raw.isdigit() else None
+                            coverage_label = (item.get("coverage_label") or "").strip()
+
+                            internal_project_id = int(row_project_id) if row_project_id is not None else prj.get_or_create_template_only_project(int(org_id))
+                            if internal_project_id is None:
+                                raise ValueError("Template-only workspace unavailable.")
+
+                            valid_count += 1
+                            if do_import:
+                                enumerator_id = enum.create_enumerator(
+                                    project_id=int(internal_project_id),
+                                    name=full_name,
+                                    phone=phone,
+                                    email=email,
+                                    status="ACTIVE",
+                                )
+                                assignment_id = enum.assign_enumerator(
+                                    project_id=int(internal_project_id),
+                                    enumerator_id=int(enumerator_id),
+                                    template_id=int(row_template_id) if row_template_id else None,
+                                    target_facilities_count=target_count,
+                                )
+                                if coverage_label and row_project_id:
+                                    with get_conn() as conn:
+                                        cols = [r["name"] for r in conn.execute("PRAGMA table_info(enumerator_assignments)").fetchall()]
+                                        if "coverage_label" in cols:
+                                            conn.execute(
+                                                "UPDATE enumerator_assignments SET coverage_label=? WHERE id=?",
+                                                (coverage_label, int(assignment_id)),
+                                            )
+                                            conn.commit()
+                                if row_project_id:
+                                    code_info = prj.ensure_assignment_code(int(row_project_id), int(enumerator_id), int(assignment_id))
+                                else:
+                                    code_info = prj.ensure_assignment_code_template(int(row_template_id), int(enumerator_id), int(assignment_id))
+                                row_detail = code_info.get("code_full") or ""
+                                imported_count += 1
+                                row_result = "IMPORTED"
+                            else:
+                                row_detail = "Validated"
+                    except Exception as row_e:
+                        skipped_count += 1
+                        row_result = "SKIPPED"
+                        row_detail = str(row_e)
+
+                    bulk_preview_rows.append(
+                        {
+                            "line": str(ln_no),
+                            "name": full_name or "—",
+                            "email": email or "—",
+                            "result": row_result,
+                            "detail": row_detail or "—",
+                        }
+                    )
+
+                if do_import:
+                    bulk_msg = f"Imported {imported_count} rows, skipped {skipped_count}."
+                    if bulk_form["role"] == "ENUMERATOR":
+                        enum_msg = bulk_msg
+                    else:
+                        msg = bulk_msg
+                else:
+                    preview_total = len(row_items)
+                    invalid_count = preview_total - valid_count
+                    bulk_msg = f"Preview ready: {preview_total} rows parsed, {valid_count} valid, {invalid_count} flagged."
+            elif action == "approve":
                 with get_conn() as conn:
                     conn.execute("UPDATE users SET status='ACTIVE' WHERE id=? AND organization_id=?", (target_id, int(org_id)))
                     conn.commit()
@@ -10420,8 +10671,11 @@ def ui_org_users():
                 msg = "Supervisor status updated."
                 _log_audit(org_id, int(user.get("id")), "supervisor.status.updated", "supervisor", sup_id, {"status": next_status})
         except Exception as e:
-            if (request.form.get("action") or "").strip() == "create_enumerator":
+            action_failed = (request.form.get("action") or "").strip()
+            if action_failed == "create_enumerator":
                 enum_err = str(e)
+            elif action_failed == "bulk_import_team":
+                bulk_err = str(e)
             else:
                 err = str(e)
 
@@ -10705,6 +10959,98 @@ def ui_org_users():
     </div>
     """
 
+    bulk_project_options = ["<option value=''>Template-only (no project)</option>"]
+    for p in projects:
+        pid = str(p.get("id") or "")
+        sel = "selected" if bulk_form.get("project_id") == pid else ""
+        bulk_project_options.append(f"<option value='{pid}' {sel}>{html.escape(p.get('name') or 'Project')}</option>")
+    bulk_template_options = [f"<option value='' {'selected' if not bulk_form.get('template_id') else ''}>Any form</option>"]
+    for t in templates:
+        if isinstance(t, dict):
+            tid = t.get("id")
+            tname = t.get("name")
+        else:
+            tid = t[0] if len(t) > 0 else None
+            tname = t[1] if len(t) > 1 else ""
+        if tid is None:
+            continue
+        tid_s = str(tid)
+        sel = "selected" if bulk_form.get("template_id") == tid_s else ""
+        bulk_template_options.append(f"<option value='{tid_s}' {sel}>{html.escape(tname or 'Template')}</option>")
+
+    bulk_preview_block = ""
+    if bulk_preview_rows:
+        preview_rows_html = []
+        for r in bulk_preview_rows[:120]:
+            badge_cls = "status-active" if r.get("result") in ("READY", "IMPORTED") else "status-archived"
+            preview_rows_html.append(
+                f"<tr><td>{r.get('line')}</td><td>{html.escape(r.get('name') or '')}</td><td>{html.escape(r.get('email') or '')}</td>"
+                f"<td><span class='status-badge {badge_cls}'>{html.escape(r.get('result') or '')}</span></td>"
+                f"<td>{html.escape(r.get('detail') or '')}</td></tr>"
+            )
+        bulk_preview_block = (
+            "<div style='margin-top:12px'><table class='table'><thead><tr><th style=\"width:80px\">Line</th><th>Name</th><th>Email</th><th style=\"width:140px\">Result</th><th>Detail</th></tr></thead><tbody>"
+            + "".join(preview_rows_html)
+            + "</tbody></table>"
+            + ("<div class='muted' style='margin-top:8px'>Showing first 120 rows.</div>" if len(bulk_preview_rows) > 120 else "")
+            + "</div>"
+        )
+
+    bulk_block = f"""
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin-top:0">Bulk import team members</h3>
+      <div class="muted">Upload CSV or paste lines to create many supervisors/enumerators at once.</div>
+      {("<div class='team-alert-success' style='margin-top:10px'><b>Success:</b> " + html.escape(bulk_msg) + "</div>" if bulk_msg else "")}
+      {("<div class='team-alert-error' style='margin-top:10px'><b>Error:</b> " + html.escape(bulk_err) + "</div>" if bulk_err else "")}
+      <form method="POST" enctype="multipart/form-data" class="stack team-stack" style="margin-top:12px" id="bulkImportForm">
+        <input type="hidden" name="action" value="bulk_import_team" />
+        {"<input type='hidden' name='key' value='" + ADMIN_KEY + "' />" if ADMIN_KEY else ""}
+        <div class="team-form-grid">
+          <div class="team-col-3">
+            <label style="font-weight:800">Role</label>
+            <select name="bulk_role" id="bulkRole">
+              <option value="ENUMERATOR" {"selected" if bulk_form.get("role") == "ENUMERATOR" else ""}>Enumerator</option>
+              <option value="SUPERVISOR" {"selected" if bulk_form.get("role") == "SUPERVISOR" else ""}>Supervisor</option>
+            </select>
+          </div>
+          <div class="team-col-3">
+            <label style="font-weight:800">Source</label>
+            <select name="bulk_source" id="bulkSource">
+              <option value="paste" {"selected" if bulk_form.get("source") == "paste" else ""}>Paste text</option>
+              <option value="csv" {"selected" if bulk_form.get("source") == "csv" else ""}>Upload CSV</option>
+            </select>
+          </div>
+          <div class="team-col-3" id="bulkProjectWrap">
+            <label style="font-weight:800">Default project</label>
+            <select name="bulk_project_id" id="bulkProjectSelect">
+              {''.join(bulk_project_options)}
+            </select>
+          </div>
+          <div class="team-col-3" id="bulkTemplateWrap">
+            <label style="font-weight:800">Default template</label>
+            <select name="bulk_template_id" id="bulkTemplateSelect">
+              {''.join(bulk_template_options)}
+            </select>
+          </div>
+          <div class="team-col-12" id="bulkTextWrap">
+            <label style="font-weight:800">Paste rows (CSV format)</label>
+            <textarea name="bulk_text" rows="5" placeholder="full_name,email,phone,target_facilities_count,coverage_label,template_id,project_id">{html.escape(bulk_form.get('text') or '')}</textarea>
+            <div class="muted" style="margin-top:6px">Headers are optional. For supervisors use: full_name,email,phone,access_key.</div>
+          </div>
+          <div class="team-col-12" id="bulkFileWrap" style="display:none;">
+            <label style="font-weight:800">CSV file</label>
+            <input type="file" name="bulk_file" accept=".csv,text/csv" />
+          </div>
+          <div class="team-col-12 row" style="justify-content:flex-end; gap:10px; margin-top:6px;">
+            <button class="btn" type="submit" name="bulk_submit" value="preview">Preview</button>
+            <button class="btn btn-primary" type="submit" name="bulk_submit" value="import">Import</button>
+          </div>
+        </div>
+      </form>
+      {bulk_preview_block}
+    </div>
+    """
+
     members_block = f"""
     <div class="card" style="margin-top:16px">
       <table class="table">
@@ -10946,6 +11292,7 @@ def ui_org_users():
 
       {invite_block}
       {supervisors_block}
+      {bulk_block}
 
       <div class="card">
         <div class="team-card-head team-enum-head" style="gap:12px; flex-wrap:wrap;">
@@ -11036,6 +11383,32 @@ def ui_org_users():
         }}
         if(sel){{ sel.addEventListener("change", toggle); }}
         toggle();
+        const bulkRole = document.getElementById("bulkRole");
+        const bulkSource = document.getElementById("bulkSource");
+        const bulkTextWrap = document.getElementById("bulkTextWrap");
+        const bulkFileWrap = document.getElementById("bulkFileWrap");
+        const bulkProjectWrap = document.getElementById("bulkProjectWrap");
+        const bulkTemplateWrap = document.getElementById("bulkTemplateWrap");
+        const bulkProjectSelect = document.getElementById("bulkProjectSelect");
+        const bulkTemplateSelect = document.getElementById("bulkTemplateSelect");
+        function toggleBulk() {{
+          const role = bulkRole ? String(bulkRole.value || "").toUpperCase() : "ENUMERATOR";
+          const source = bulkSource ? String(bulkSource.value || "").toLowerCase() : "paste";
+          const hasProject = bulkProjectSelect ? !!String(bulkProjectSelect.value || "").trim() : false;
+          if(bulkTextWrap) bulkTextWrap.style.display = source === "paste" ? "" : "none";
+          if(bulkFileWrap) bulkFileWrap.style.display = source === "csv" ? "" : "none";
+          if(bulkTemplateWrap) bulkTemplateWrap.style.display = role === "SUPERVISOR" ? "none" : "";
+          if(bulkTemplateSelect) bulkTemplateSelect.disabled = role === "SUPERVISOR";
+          if(bulkProjectWrap) bulkProjectWrap.querySelector("label").textContent = role === "SUPERVISOR" ? "Project (required)" : "Default project";
+          if(role !== "SUPERVISOR" && bulkTemplateWrap) {{
+            const hint = bulkTemplateWrap.querySelector(".muted");
+            if(hint) hint.style.display = hasProject ? "none" : "";
+          }}
+        }}
+        if(bulkRole) bulkRole.addEventListener("change", toggleBulk);
+        if(bulkSource) bulkSource.addEventListener("change", toggleBulk);
+        if(bulkProjectSelect) bulkProjectSelect.addEventListener("change", toggleBulk);
+        toggleBulk();
         const buttons = Array.from(document.querySelectorAll("[data-copy]"));
         buttons.forEach(btn => {{
           btn.addEventListener("click", async () => {{
