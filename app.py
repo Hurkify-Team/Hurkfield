@@ -9,6 +9,7 @@ import secrets
 import json
 import io
 import base64
+import csv
 import re
 import random
 import uuid
@@ -7129,7 +7130,7 @@ def fill_form(token, project_id=None, review_mode: bool = False):
               let locked = false;
 
               // Draft key is unique per template link (so drafts don't mix)
-              const basePath = window.location.pathname.replace(/\/review$/, "");
+              const basePath = window.location.pathname.replace(/\\/review$/, "");
               const qsParams = new URLSearchParams(window.location.search);
               const assignId = qsParams.get("assign_id") || "";
               const editId = qsParams.get("edit_id") || "";
@@ -10034,13 +10035,6 @@ def ui_organization():
     </div>
 
     {"<div class='card' style='border-color: rgba(46, 204, 113, .35)'><b>Success:</b> " + msg + "</div>" if msg else ""}
-    {(
-      "<div class='card' style='border-color: rgba(59, 130, 246, .35)'>"
-      "<b>Redirecting:</b> Enumerator added. Taking you to Team in a moment… "
-      f"<a href='/ui/org/users?project_id={project_id}{('&key=' + ADMIN_KEY) if ADMIN_KEY else ''}'>Go now</a>"
-      "</div>"
-      if msg and "Enumerator" in msg else ""
-    )}
     {"<div class='card' style='border-color: rgba(231, 76, 60, .35)'><b>Error:</b> " + err + "</div>" if err else ""}
 
     <div class="card" style="margin-top:16px">
@@ -16464,7 +16458,7 @@ def ui_templates():
         )
 
     # Page HTML
-    html = f"""
+    html_page = f"""
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       .premium-header{{
@@ -16884,7 +16878,7 @@ def ui_template_share(template_id):
         else "<span style='padding:6px 10px;border-radius:999px;border:1px solid rgba(231,76,60,.35);background:rgba(231,76,60,.06);color:#b00;'>DISABLED</span>"
     )
 
-    html = f"""
+    html_page = f"""
     <style>
       .share-panel-actions .btn{{padding:10px 14px; font-size:14px}}
       .share-panel-actions .btn.btn-primary{{box-shadow:0 10px 24px rgba(124,58,237,.25)}}
@@ -21966,7 +21960,7 @@ def ui_errors():
             """
         )
 
-    html = f"""
+    html_page = f"""
     <style>
       .pill{{
         display:inline-flex;
