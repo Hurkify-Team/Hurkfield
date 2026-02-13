@@ -11810,86 +11810,244 @@ def ui_projects_new():
             err = str(e)
 
     orgs = prj.list_organizations(200)
-    org_options = "".join(
-        [f"<option value='{o.get('id')}'>{o.get('name')}</option>" for o in orgs]
-    )
     org_label = None
     if org_id is not None:
         org_label = next((o.get("name") for o in orgs if int(o.get("id") or 0) == int(org_id)), "Organization")
 
+    form = request.form if request.method == "POST" else {}
+    selected_org = form.get("organization_id") or ""
+    selected_org = int(selected_org) if str(selected_org).isdigit() else None
+    assignment_mode_selected = (form.get("assignment_mode") or "OPTIONAL").strip().upper()
+    status_selected = (form.get("status") or "DRAFT").strip().upper()
+    is_test_checked = "checked" if form.get("is_test_project") == "on" else ""
+    is_live_checked = "checked" if form.get("is_live_project") == "on" else ""
+    name_val = html.escape((form.get("name") or "").strip())
+    desc_val = html.escape((form.get("description") or "").strip())
+    owner_val = html.escape((form.get("owner_name") or "").strip())
+    expected_submissions_val = html.escape((form.get("expected_submissions") or "").strip())
+    expected_coverage_val = html.escape((form.get("expected_coverage") or "").strip())
+
+    org_options = "".join([
+        f"<option value='{o.get('id')}' {'selected' if selected_org == int(o.get('id') or 0) else ''}>{html.escape(o.get('name') or 'Organization')}</option>"
+        for o in orgs
+    ])
+
     html_page = f"""
-    <div class="card">
-      <h1 class="h1">Create Project</h1>
-      <div class="muted">Set up a new project context for templates and surveys.</div>
-    </div>
+    <style>
+      .cp-shell {{
+        display: grid;
+        gap: 18px;
+      }}
+      .cp-hero {{
+        border: 1px solid rgba(124,58,237,.22);
+        background: linear-gradient(130deg, rgba(124,58,237,.16) 0%, rgba(124,58,237,.05) 48%, rgba(255,255,255,.9) 100%);
+        border-radius: 22px;
+        padding: 22px 24px;
+        box-shadow: 0 20px 50px rgba(124,58,237,.14);
+      }}
+      .cp-title {{
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        font-weight: 850;
+        color: var(--primary);
+      }}
+      .cp-sub {{
+        margin: 0;
+        color: var(--muted);
+        max-width: 760px;
+      }}
+      .cp-alert {{
+        border-radius: 16px;
+        padding: 12px 14px;
+        border: 1px solid;
+        font-weight: 600;
+      }}
+      .cp-alert.ok {{
+        border-color: rgba(46, 204, 113, .35);
+        background: rgba(46, 204, 113, .1);
+        color: #15803d;
+      }}
+      .cp-alert.err {{
+        border-color: rgba(231, 76, 60, .35);
+        background: rgba(231, 76, 60, .1);
+        color: #b91c1c;
+      }}
+      .cp-grid {{
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+        gap: 18px;
+      }}
+      .cp-card {{
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }}
+      .cp-form {{
+        padding: 20px;
+      }}
+      .cp-row {{
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }}
+      .cp-field {{
+        display: grid;
+        gap: 8px;
+      }}
+      .cp-field.full {{
+        grid-column: 1 / -1;
+      }}
+      .cp-field label {{
+        font-weight: 800;
+        font-size: 13px;
+        color: var(--text);
+      }}
+      .cp-checks {{
+        display: grid;
+        gap: 8px;
+        margin-top: 2px;
+      }}
+      .cp-check {{
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        color: var(--text);
+      }}
+      .cp-check input {{
+        width: auto;
+      }}
+      .cp-actions {{
+        margin-top: 8px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        grid-column: 1 / -1;
+      }}
+      .cp-note {{
+        padding: 20px;
+      }}
+      .cp-note h3 {{
+        margin: 0 0 10px 0;
+        font-size: 15px;
+        font-weight: 850;
+      }}
+      .cp-note ul {{
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }}
+      @media (max-width: 980px) {{
+        .cp-grid {{
+          grid-template-columns: 1fr;
+        }}
+      }}
+      @media (max-width: 720px) {{
+        .cp-row {{
+          grid-template-columns: 1fr;
+        }}
+      }}
+    </style>
 
-    {"<div class='card' style='border-color: rgba(46, 204, 113, .35)'><b>Success:</b> " + msg + "</div>" if msg else ""}
-    {"<div class='card' style='border-color: rgba(231, 76, 60, .35)'><b>Error:</b> " + err + "</div>" if err else ""}
+    <div class="cp-shell">
+      <section class="cp-hero">
+        <h1 class="cp-title">Create Project</h1>
+        <p class="cp-sub">Set up a project workspace for templates, coverage structure, assignments, and live submissions.</p>
+      </section>
 
-    <div class="card">
-      <form method="POST" class="stack">
-        <div>
-          <label style="font-weight:800">Organization</label>
-          {(
-            f"<div class='muted' style='margin-top:6px'>Assigned to: <b>{html.escape(org_label or 'Organization')}</b></div><input type='hidden' name='organization_id' value='{org_id}' />"
-            if org_id is not None
-            else f"<select name='organization_id'><option value=''>Select organization</option>{org_options}</select><div class='muted' style='margin-top:6px'>Create one in Onboarding if missing.</div>"
-          )}
+      {"<div class='cp-alert ok'>Success: " + html.escape(msg) + "</div>" if msg else ""}
+      {"<div class='cp-alert err'>Error: " + html.escape(err) + "</div>" if err else ""}
+
+      <section class="cp-grid">
+        <div class="cp-card cp-form">
+          <form method="POST" class="cp-row">
+            <div class="cp-field full">
+              <label for="organization_id">Organization</label>
+              {(
+                f"<div class='muted'>Assigned to: <b>{html.escape(org_label or 'Organization')}</b></div><input id='organization_id' type='hidden' name='organization_id' value='{org_id}' />"
+                if org_id is not None
+                else f"<select id='organization_id' name='organization_id'><option value=''>Select organization</option>{org_options}</select><div class='muted'>Create one in Onboarding if missing.</div>"
+              )}
+            </div>
+
+            <div class="cp-field">
+              <label for="name">Project name</label>
+              <input id="name" name="name" value="{name_val}" placeholder="e.g., Kaduna Baseline" required />
+            </div>
+
+            <div class="cp-field">
+              <label for="owner_name">Owner name</label>
+              <input id="owner_name" name="owner_name" value="{owner_val}" placeholder="Team lead or supervisor name" />
+            </div>
+
+            <div class="cp-field full">
+              <label for="description">Description</label>
+              <textarea id="description" name="description" placeholder="Short project context" rows="4">{desc_val}</textarea>
+            </div>
+
+            <div class="cp-field">
+              <label for="expected_submissions">Expected submissions</label>
+              <input id="expected_submissions" name="expected_submissions" type="number" min="0" value="{expected_submissions_val}" placeholder="e.g., 120" />
+            </div>
+
+            <div class="cp-field">
+              <label for="expected_coverage">Expected coverage</label>
+              <input id="expected_coverage" name="expected_coverage" type="number" min="0" value="{expected_coverage_val}" placeholder="e.g., 80 facilities" />
+            </div>
+
+            <div class="cp-field">
+              <label for="assignment_mode">Assignment strictness</label>
+              <select id="assignment_mode" name="assignment_mode">
+                <option value="OPTIONAL" {"selected" if assignment_mode_selected == "OPTIONAL" else ""}>A — Assignment optional</option>
+                <option value="REQUIRED_PROJECT" {"selected" if assignment_mode_selected == "REQUIRED_PROJECT" else ""}>B — Assignment required per project</option>
+                <option value="REQUIRED_TEMPLATE" {"selected" if assignment_mode_selected == "REQUIRED_TEMPLATE" else ""}>C — Assignment required per template</option>
+              </select>
+            </div>
+
+            <div class="cp-field">
+              <label for="status">Status</label>
+              <select id="status" name="status">
+                <option value="DRAFT" {"selected" if status_selected == "DRAFT" else ""}>Draft</option>
+                <option value="ACTIVE" {"selected" if status_selected == "ACTIVE" else ""}>Active</option>
+                <option value="ARCHIVED" {"selected" if status_selected == "ARCHIVED" else ""}>Archived</option>
+              </select>
+            </div>
+
+            <div class="cp-field full">
+              <label>Environment flags</label>
+              <div class="cp-checks">
+                <label class="cp-check" for="is_test_project">
+                  <input id="is_test_project" type="checkbox" name="is_test_project" {is_test_checked} />
+                  <span>Test project</span>
+                </label>
+                <label class="cp-check" for="is_live_project">
+                  <input id="is_live_project" type="checkbox" name="is_live_project" {is_live_checked} />
+                  <span>Live data collection</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="cp-actions full">
+              <button class="btn btn-primary" type="submit">Create project</button>
+              <a class="btn" href="{url_for('ui_projects')}{key_q}">Cancel</a>
+            </div>
+          </form>
         </div>
-        <div>
-          <label style="font-weight:800">Project name</label>
-          <input name="name" placeholder="e.g., Kaduna Baseline" />
-        </div>
-        <div>
-          <label style="font-weight:800">Description</label>
-          <textarea name="description" placeholder="Short project context"></textarea>
-        </div>
-        <div>
-          <label style="font-weight:800">Owner name</label>
-          <input name="owner_name" placeholder="Team lead or supervisor name" />
-        </div>
-        <div>
-          <label style="font-weight:800">Expected submissions</label>
-          <input name="expected_submissions" type="number" min="0" placeholder="e.g., 120" />
-        </div>
-        <div>
-          <label style="font-weight:800">Expected coverage</label>
-          <input name="expected_coverage" type="number" min="0" placeholder="e.g., 80 facilities" />
-        </div>
-        <div>
-          <label style="font-weight:800">Assignment strictness</label>
-          <select name="assignment_mode">
-            <option value="OPTIONAL">A — Assignment optional</option>
-            <option value="REQUIRED_PROJECT">B — Assignment required per project</option>
-            <option value="REQUIRED_TEMPLATE">C — Assignment required per template</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-weight:800">Status</label>
-          <select name="status">
-            <option value="DRAFT" selected>Draft</option>
-            <option value="ACTIVE">Active</option>
-            <option value="ARCHIVED">Archived</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-weight:800">Environment flags</label>
-          <div class="row" style="margin-top:6px">
-            <label class="row" style="gap:8px">
-              <input type="checkbox" name="is_test_project" style="width:auto" />
-              <span>Test project</span>
-            </label>
-            <label class="row" style="gap:8px">
-              <input type="checkbox" name="is_live_project" style="width:auto" />
-              <span>Live data collection</span>
-            </label>
-          </div>
-        </div>
-        <div class="row">
-          <button class="btn btn-primary" type="submit">Create project</button>
-          <a class="btn" href="{url_for('ui_projects')}{key_q}">Cancel</a>
-        </div>
-      </form>
+
+        <aside class="cp-card cp-note">
+          <h3>Project setup checklist</h3>
+          <ul>
+            <li>Use a clear project name for easier reporting and exports.</li>
+            <li>Keep status in Draft until templates and coverage are ready.</li>
+            <li>Choose assignment mode based on field control requirements.</li>
+            <li>Enable Live data collection only when deployment starts.</li>
+          </ul>
+        </aside>
+      </section>
     </div>
     """
     return ui_shell("Create Project", html_page)
