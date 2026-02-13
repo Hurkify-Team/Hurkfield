@@ -82,7 +82,7 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
 UI_BRAND = {
     "name": "HurkField",
     "primary": "#7C3AED",
-    "logo": "/static/logos/hurkfield-brand.jpeg",
+    "logo": "/static/logos/Hurkfield.jpeg",
 }
 
 DOCS_ROOT = os.path.join(os.path.dirname(__file__), "docs")
@@ -594,7 +594,7 @@ def ui_shell(
             <div class="container">
               <div class="nav-inner">
                 <a href="{home_href}" class="brand" aria-label="{UI_BRAND['name']} home">
-                  <img src="{UI_BRAND.get('logo','/static/logos/hurkfield-brand.jpeg')}" alt="{UI_BRAND['name']} logo" style="height:56px; width:auto; max-width:210px; object-fit:contain; border-radius:14px; display:block;" />
+                  <img src="{UI_BRAND.get('logo','/static/logos/Hurkfield.jpeg')}" alt="{UI_BRAND['name']} logo" style="height:56px; width:auto; max-width:210px; object-fit:contain; border-radius:14px; display:block;" />
                 </a>
                 <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-expanded="false" aria-controls="mainNavActions">Menu</button>
                 <div class="nav-actions" id="mainNavActions">
@@ -2699,7 +2699,7 @@ def ui_signup():
     <div class="bg-white border border-violet-100 rounded-[28px] shadow-[0_26px_90px_-36px_rgba(124,58,237,0.48)] overflow-hidden grid lg:grid-cols-2">
       <div class="p-8 sm:p-10 text-white bg-gradient-to-br from-violet-700 via-fuchsia-600 to-indigo-600">
         <a href="/" class="inline-flex items-center">
-          <img src="/static/logos/hurkfield-brand.jpeg" alt="HurkField logo" class="h-16 w-auto rounded-2xl shadow-2xl ring-1 ring-white/30" />
+          <img src="/static/logos/Hurkfield.jpeg" alt="HurkField logo" class="h-16 w-auto rounded-2xl shadow-2xl ring-1 ring-white/30" />
         </a>
         <h2 class="text-3xl sm:text-4xl font-extrabold mt-5 tracking-tight">Create your HurkField workspace</h2>
         <p class="text-white/90 mt-3 text-sm sm:text-base leading-relaxed">Set up a secure workspace to build forms, assign enumerators, and monitor submissions.</p>
@@ -9143,7 +9143,7 @@ def ui_dashboard():
         <aside class="border-r border-slate-200 bg-white p-5">
           <div class="mb-2">
             <img
-              src="/static/logos/hurkfield-brand.jpeg"
+              src="/static/logos/Hurkfield.jpeg"
               alt="HurkField logo"
               class="h-16 w-auto max-w-[180px] object-contain drop-shadow-[0_10px_20px_rgba(124,58,237,0.22)]"
             />
