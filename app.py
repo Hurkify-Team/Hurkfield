@@ -82,7 +82,7 @@ app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
 UI_BRAND = {
     "name": "HurkField",
     "primary": "#7C3AED",
-    "logo": "/static/logos/hurkfield-logo.jpeg",
+    "logo": "/static/logos/hurkfield-logo-tight.png",
 }
 
 DOCS_ROOT = os.path.join(os.path.dirname(__file__), "docs")
@@ -594,7 +594,7 @@ def ui_shell(
             <div class="container">
               <div class="nav-inner">
                 <a href="{home_href}" class="brand" aria-label="{UI_BRAND['name']} home">
-                  <img src="{UI_BRAND.get('logo','/static/logos/hurkfield-logo.jpeg')}" alt="{UI_BRAND['name']} logo" style="height:156px; width:auto; max-width:800px; object-fit:contain; display:block;" />
+                  <img src="{UI_BRAND.get('logo','/static/logos/hurkfield-logo-tight.png')}" alt="{UI_BRAND['name']} logo" style="height:64px; width:auto; max-width:420px; object-fit:contain; display:block;" />
                 </a>
                 <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-expanded="false" aria-controls="mainNavActions">Menu</button>
                 <div class="nav-actions" id="mainNavActions">
@@ -783,7 +783,7 @@ def ui_shell(
             .brand{{display:flex; align-items:center; cursor:pointer; transition:all 0.3s ease; text-decoration:none; padding:8px 0; margin-right:16px; position:relative}}
             .brand::after{{content:""; position:absolute; right:-8px; top:50%; transform:translateY(-50%); width:1px; height:24px; background:var(--border); opacity:.7}}
             .brand:hover{{opacity:0.8; transform:scale(1.05)}}
-            .brand img{{height:144px; width:auto; max-width:760px; display:block}}
+            .brand img{{height:58px; width:auto; max-width:380px; display:block}}
             .nav-actions{{display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; width:100%}}
             .nav-actions .btn{{font-family:var(--font-heading); padding:8px 12px; border-radius:10px; border:1px solid #D1D5DB; background:#FFFFFF; color:#475569; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; font-size:12px; transition:all 0.3s ease}}
             .nav-actions .btn:hover{{color:var(--primary); border-color:var(--primary); box-shadow:0 4px 12px rgba(124,58,237,.15); background:#FFFFFF}}
@@ -967,7 +967,7 @@ def ui_shell(
               .container{{padding:0 16px}}
               .nav{{position:sticky}}
               .nav-inner{{padding:14px 0}}
-              .brand img{{height:124px; max-width:600px}}
+              .brand img{{height:52px; max-width:320px}}
               .mobile-nav-toggle{{height:38px; padding:0 10px; font-size:12px}}
               .table thead{{display:none}}
               .table,
@@ -2699,7 +2699,7 @@ def ui_signup():
     <div class="bg-white border border-violet-100 rounded-[28px] shadow-[0_26px_90px_-36px_rgba(124,58,237,0.48)] overflow-hidden grid lg:grid-cols-2">
       <div class="p-8 sm:p-10 text-white bg-gradient-to-br from-violet-700 via-fuchsia-600 to-indigo-600">
         <a href="/" class="inline-flex items-center">
-          <img src="/static/logos/hurkfield-logo.jpeg" alt="HurkField logo" class="h-40 md:h-48 w-auto max-w-[680px] object-contain" />
+          <img src="/static/logos/hurkfield-logo-tight.png" alt="HurkField logo" class="h-16 md:h-20 w-auto max-w-[320px] object-contain" />
         </a>
         <h2 class="text-3xl sm:text-4xl font-extrabold mt-5 tracking-tight">Create your HurkField workspace</h2>
         <p class="text-white/90 mt-3 text-sm sm:text-base leading-relaxed">Set up a secure workspace to build forms, assign enumerators, and monitor submissions.</p>
@@ -9143,9 +9143,9 @@ def ui_dashboard():
         <aside class="border-r border-slate-200 bg-white p-5">
           <div class="mb-2">
             <img
-              src="/static/logos/hurkfield-logo.jpeg"
+              src="/static/logos/hurkfield-logo-tight.png"
               alt="HurkField logo"
-              class="h-48 w-auto max-w-[640px] object-contain"
+              class="h-20 w-auto max-w-[320px] object-contain"
             />
             <div class="text-[11px] text-slate-500">{html.escape(org_name or 'Workspace')}</div>
           </div>
