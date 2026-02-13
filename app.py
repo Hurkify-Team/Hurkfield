@@ -10887,11 +10887,37 @@ def ui_org_users():
       .team-shell .status-badge {{
         white-space: nowrap;
       }}
+      .team-enum-head {{
+        align-items: flex-end;
+      }}
+      .enum-select-form {{
+        min-width: 300px;
+      }}
+      .enum-select-form select {{
+        width: 100%;
+      }}
+      .enum-form {{
+        margin-top: 14px;
+      }}
+      .enum-grid {{
+        align-items: end;
+      }}
+      .enum-submit-center {{
+        display: flex;
+        justify-content: center;
+        margin-top: 6px;
+      }}
+      .enum-submit-center .btn {{
+        min-width: 280px;
+      }}
       @media (max-width: 900px) {{
         .team-title {{ font-size: 24px; }}
         .team-card-head {{
           align-items: flex-start;
           flex-direction: column;
+        }}
+        .enum-select-form {{
+          min-width: 100%;
         }}
         .team-col-12,
         .team-col-8,
@@ -10922,12 +10948,13 @@ def ui_org_users():
       {supervisors_block}
 
       <div class="card">
-        <div class="team-card-head" style="gap:12px; flex-wrap:wrap;">
+        <div class="team-card-head team-enum-head" style="gap:12px; flex-wrap:wrap;">
           <div>
             <h3 style="margin-bottom:4px;">Enumerators</h3>
             <div class="muted">Add enumerators and assign them to a project/template flow.</div>
           </div>
-          <form method="GET">
+          <form method="GET" class="enum-select-form">
+            {f"<input type='hidden' name='key' value='{ADMIN_KEY}' />" if ADMIN_KEY else ""}
             <select name="project_id" onchange="this.form.submit()">
               {''.join(project_selector_options)}
             </select>
@@ -10935,9 +10962,9 @@ def ui_org_users():
         </div>
         {("<div class='team-alert-success' style='margin-top:10px;'><b>Success:</b> " + enum_msg + "</div>" if enum_msg else "")}
         {("<div class='team-alert-error' style='margin-top:10px;'><b>Error:</b> " + enum_err + "</div>" if enum_err else "")}
-        <form method="POST" class="stack team-stack" style="margin-top:14px" id="enumForm">
+        <form method="POST" class="stack team-stack enum-form" id="enumForm">
           <input type="hidden" name="action" value="create_enumerator" />
-          <div class="team-form-grid">
+          <div class="team-form-grid enum-grid">
             <div class="team-col-4">
               <label style="font-weight:800">Full name</label>
               <input name="enum_name" placeholder="Enumerator full name" />
@@ -10950,8 +10977,6 @@ def ui_org_users():
               <label style="font-weight:800">Phone</label>
               <input name="enum_phone" placeholder="Phone" />
             </div>
-          </div>
-          <div class="team-form-grid">
             <div class="team-col-4">
               <label style="font-weight:800">Project (optional)</label>
               <select name="project_id" id="enumProjectSelect">
@@ -10965,24 +10990,17 @@ def ui_org_users():
                 {''.join(template_options) if template_options else ""}
               </select>
             </div>
-            <div class="team-col-4">
+            <div class="team-col-4" id="enumTargetField">
               <label style="font-weight:800">Target facilities (optional)</label>
-              <div id="enumTargetWrap">
-                <input name="target_facilities_count" placeholder="e.g., 8" />
-              </div>
+              <input name="target_facilities_count" placeholder="e.g., 8" />
+            </div>
+            <div class="team-col-8" id="enumCoverageField">
+              <label style="font-weight:800">Coverage label (optional)</label>
+              <input name="coverage_label" placeholder="e.g., Mushin LGA" {"disabled" if not project_selected else ""} />
             </div>
           </div>
-          <div class="team-form-grid">
-            <div class="team-col-8">
-              <label style="font-weight:800">Coverage label (optional)</label>
-              <div id="enumCoverageWrap">
-                <input name="coverage_label" placeholder="e.g., Mushin LGA" {"disabled" if not project_selected else ""} />
-                {("<div class='muted' style='margin-top:6px'>Coverage is only available for project assignments.</div>" if not project_selected else "")}
-              </div>
-            </div>
-            <div class="team-col-4 team-align-end">
-              <button class="btn btn-primary" type="submit">Create enumerator</button>
-            </div>
+          <div class="enum-submit-center">
+            <button class="btn btn-primary" type="submit">Create enumerator</button>
           </div>
         </form>
         <div style="margin-top:12px">
@@ -11004,13 +11022,17 @@ def ui_org_users():
           setTimeout(()=>toast.style.display="none", 3200);
         }}
         const sel = document.getElementById("enumProjectSelect");
-        const cov = document.getElementById("enumCoverageWrap");
-        const tgt = document.getElementById("enumTargetWrap");
+        const covField = document.getElementById("enumCoverageField");
+        const tgtField = document.getElementById("enumTargetField");
+        const covInput = covField ? covField.querySelector("input[name='coverage_label']") : null;
+        const tgtInput = tgtField ? tgtField.querySelector("input[name='target_facilities_count']") : null;
         function toggle() {{
           if(!sel) return;
           const hasProject = !!(sel.value && String(sel.value).trim());
-          if(cov) cov.style.display = hasProject ? "" : "none";
-          if(tgt) tgt.style.display = hasProject ? "" : "none";
+          if(covField) covField.style.display = hasProject ? "" : "none";
+          if(tgtField) tgtField.style.display = hasProject ? "" : "none";
+          if(covInput) covInput.disabled = !hasProject;
+          if(tgtInput) tgtInput.disabled = !hasProject;
         }}
         if(sel){{ sel.addEventListener("change", toggle); }}
         toggle();
