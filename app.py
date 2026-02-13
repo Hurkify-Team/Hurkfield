@@ -10157,9 +10157,11 @@ def ui_org_users():
     else:
         with get_conn() as conn:
             cur = conn.cursor()
-            cur.execute(
-                "SELECT id, name FROM survey_templates WHERE project_id IS NULL AND deleted_at IS NULL ORDER BY id DESC LIMIT 200"
-            )
+            sql = "SELECT id, name FROM survey_templates WHERE project_id IS NULL"
+            if "deleted_at" in templates_cols():
+                sql += " AND deleted_at IS NULL"
+            sql += " ORDER BY id DESC LIMIT 200"
+            cur.execute(sql)
             templates = [dict(r) for r in cur.fetchall()]
 
     template_options = []
