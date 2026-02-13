@@ -594,7 +594,7 @@ def ui_shell(
             <div class="container">
               <div class="nav-inner">
                 <a href="{home_href}" class="brand" aria-label="{UI_BRAND['name']} home">
-                  <img src="{UI_BRAND.get('logo','/static/logos/hurkfield-logo-tight.png')}" alt="{UI_BRAND['name']} logo" style="height:64px; width:auto; max-width:420px; object-fit:contain; display:block;" />
+                  <img src="{UI_BRAND.get('logo','/static/logos/hurkfield-logo-tight.png')}" alt="{UI_BRAND['name']} logo" style="height:56px; width:auto; max-width:380px; object-fit:contain; display:block;" />
                 </a>
                 <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-expanded="false" aria-controls="mainNavActions">Menu</button>
                 <div class="nav-actions" id="mainNavActions">
@@ -783,7 +783,7 @@ def ui_shell(
             .brand{{display:flex; align-items:center; cursor:pointer; transition:all 0.3s ease; text-decoration:none; padding:8px 0; margin-right:16px; position:relative}}
             .brand::after{{content:""; position:absolute; right:-8px; top:50%; transform:translateY(-50%); width:1px; height:24px; background:var(--border); opacity:.7}}
             .brand:hover{{opacity:0.8; transform:scale(1.05)}}
-            .brand img{{height:58px; width:auto; max-width:380px; display:block}}
+            .brand img{{height:52px; width:auto; max-width:340px; display:block}}
             .nav-actions{{display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; width:100%}}
             .nav-actions .btn{{font-family:var(--font-heading); padding:8px 12px; border-radius:10px; border:1px solid #D1D5DB; background:#FFFFFF; color:#475569; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; font-size:12px; transition:all 0.3s ease}}
             .nav-actions .btn:hover{{color:var(--primary); border-color:var(--primary); box-shadow:0 4px 12px rgba(124,58,237,.15); background:#FFFFFF}}
@@ -967,7 +967,7 @@ def ui_shell(
               .container{{padding:0 16px}}
               .nav{{position:sticky}}
               .nav-inner{{padding:14px 0}}
-              .brand img{{height:52px; max-width:320px}}
+              .brand img{{height:46px; max-width:280px}}
               .mobile-nav-toggle{{height:38px; padding:0 10px; font-size:12px}}
               .table thead{{display:none}}
               .table,
@@ -2699,7 +2699,7 @@ def ui_signup():
     <div class="bg-white border border-violet-100 rounded-[28px] shadow-[0_26px_90px_-36px_rgba(124,58,237,0.48)] overflow-hidden grid lg:grid-cols-2">
       <div class="p-8 sm:p-10 text-white bg-gradient-to-br from-violet-700 via-fuchsia-600 to-indigo-600">
         <a href="/" class="inline-flex items-center">
-          <img src="/static/logos/hurkfield-logo-tight.png" alt="HurkField logo" class="h-16 md:h-20 w-auto max-w-[320px] object-contain" />
+          <img src="/static/logos/hurkfield-logo-tight.png" alt="HurkField logo" class="h-14 md:h-16 w-auto max-w-[280px] object-contain" />
         </a>
         <h2 class="text-3xl sm:text-4xl font-extrabold mt-5 tracking-tight">Create your HurkField workspace</h2>
         <p class="text-white/90 mt-3 text-sm sm:text-base leading-relaxed">Set up a secure workspace to build forms, assign enumerators, and monitor submissions.</p>
@@ -9006,23 +9006,30 @@ def ui_dashboard():
     first_project_id = int(projects[0].get("id")) if projects else None
     total_surveys = 0
     qa_alert_count = 0
+    has_surveys_deleted_at = "deleted_at" in surveys_cols()
     with get_conn() as conn:
         cur = conn.cursor()
         if org_id is not None:
             try:
-                cur.execute(
-                    """
+                sql = """
                     SELECT COUNT(*) AS c
                     FROM surveys s
                     JOIN projects p ON p.id = s.project_id
                     WHERE p.organization_id=?
-                    """,
-                    (int(org_id),),
-                )
+                """
+                if has_surveys_deleted_at:
+                    sql += " AND s.deleted_at IS NULL"
+                cur.execute(sql, (int(org_id),))
             except Exception:
-                cur.execute("SELECT COUNT(*) AS c FROM surveys WHERE deleted_at IS NULL")
+                sql = "SELECT COUNT(*) AS c FROM surveys"
+                if has_surveys_deleted_at:
+                    sql += " WHERE deleted_at IS NULL"
+                cur.execute(sql)
         else:
-            cur.execute("SELECT COUNT(*) AS c FROM surveys WHERE deleted_at IS NULL")
+            sql = "SELECT COUNT(*) AS c FROM surveys"
+            if has_surveys_deleted_at:
+                sql += " WHERE deleted_at IS NULL"
+            cur.execute(sql)
         row = cur.fetchone()
         total_surveys = int(row["c"] or 0) if row else 0
     if total_surveys:
@@ -9145,7 +9152,7 @@ def ui_dashboard():
             <img
               src="/static/logos/hurkfield-logo-tight.png"
               alt="HurkField logo"
-              class="h-20 w-auto max-w-[320px] object-contain"
+              class="h-16 w-auto max-w-[280px] object-contain"
             />
             <div class="text-[11px] text-slate-500">{html.escape(org_name or 'Workspace')}</div>
           </div>
@@ -16832,7 +16839,7 @@ def ui_templates():
     </div>
     """
 
-    return ui_shell("Templates", html, show_project_switcher=False)
+    return ui_shell("Templates", html_page, show_project_switcher=False)
 
 
 @app.route("/ui/templates/<int:template_id>/share")
