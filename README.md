@@ -111,6 +111,7 @@ Routes:
 - `/auth/facebook`
 
 Set credentials in `.env`:
+- `OPENFIELD_PUBLIC_BASE_URL` (e.g. `https://your-domain.com`, recommended for stable OAuth callback URLs)
 - `OPENFIELD_GOOGLE_OAUTH_CLIENT_ID`
 - `OPENFIELD_GOOGLE_OAUTH_CLIENT_SECRET`
 - `OPENFIELD_MICROSOFT_OAUTH_CLIENT_ID`

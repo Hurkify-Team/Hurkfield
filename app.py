@@ -1918,11 +1918,37 @@ def _oauth_env(key: str) -> str:
         candidates.append(f"HURKFIELD_{suffix}")
         # Generic fallback (e.g. GOOGLE_OAUTH_CLIENT_ID)
         candidates.append(suffix)
+        # Accept shorter aliases too (e.g. LINKEDIN_CLIENT_ID)
+        if "_OAUTH_" in suffix:
+            short_suffix = suffix.replace("_OAUTH_", "_")
+            candidates.append(f"OPENFIELD_{short_suffix}")
+            candidates.append(f"HURKFIELD_{short_suffix}")
+            candidates.append(short_suffix)
+    seen = set()
     for cand in candidates:
+        if cand in seen:
+            continue
+        seen.add(cand)
         val = (os.environ.get(cand) or "").strip()
         if val:
             return val
     return ""
+
+
+def _oauth_redirect_uri(provider: str) -> str:
+    """
+    Build a stable OAuth callback URL.
+    In production behind proxies/CDNs, set OPENFIELD_PUBLIC_BASE_URL (or HURKFIELD_* alias)
+    to avoid redirect_uri mismatches from host/scheme differences.
+    """
+    callback_path = url_for("auth_callback", provider=provider)
+    base_url = (
+        (os.environ.get("OPENFIELD_PUBLIC_BASE_URL") or "").strip()
+        or (os.environ.get("HURKFIELD_PUBLIC_BASE_URL") or "").strip()
+    ).rstrip("/")
+    if base_url:
+        return f"{base_url}{callback_path}"
+    return url_for("auth_callback", provider=provider, _external=True)
 
 
 def _token_hash(raw: str) -> str:
@@ -3447,7 +3473,7 @@ def auth_provider(provider):
             f"<h2>OAuth not configured</h2><p>{html.escape(provider.title())} sign-in is not configured yet. Set: <code>{html.escape(env_hint.get(provider, 'provider OAuth client ID/secret env vars'))}</code>.</p>",
             501,
         )
-    redirect_uri = url_for("auth_callback", provider=provider, _external=True)
+    redirect_uri = _oauth_redirect_uri(provider)
     try:
         return client.authorize_redirect(redirect_uri)
     except Exception as e:
