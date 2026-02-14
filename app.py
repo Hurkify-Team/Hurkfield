@@ -669,7 +669,8 @@ def ui_shell(
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width,initial-scale=1" />
           <title>{title} — {UI_BRAND["name"]}</title>
-          <link rel="icon" href="/static/favicon-32.png" type="image/png" />
+          <link rel="icon" href="/static/favicon.ico" sizes="any" />
+          <link rel="icon" href="/static/favicon-32.png" type="image/png" sizes="32x32" />
           <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
 
           <link rel="preconnect" href="https://fonts.googleapis.com">
