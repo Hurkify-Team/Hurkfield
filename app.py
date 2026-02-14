@@ -85,7 +85,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 UI_BRAND = {
     "name": "HurkField",
     "primary": "#7C3AED",
-    "logo": "/static/logos/hurkfield-logo-tight.png",
+    "logo": "/static/logos/hurkfield-logo-tight-crisp.png",
 }
 
 DOCS_ROOT = os.path.join(os.path.dirname(__file__), "docs")
@@ -597,7 +597,7 @@ def ui_shell(
             <div class="container">
               <div class="nav-inner">
                 <a href="{home_href}" class="brand" aria-label="{UI_BRAND['name']} home">
-                  <img src="{UI_BRAND.get('logo','/static/logos/hurkfield-logo-tight.png')}" alt="{UI_BRAND['name']} logo" style="height:56px; width:auto; max-width:380px; object-fit:contain; display:block;" />
+                  <img src="{UI_BRAND.get('logo','/static/logos/hurkfield-logo-tight-crisp.png')}" alt="{UI_BRAND['name']} logo" style="height:44px; width:auto; max-width:280px; object-fit:contain; display:block;" />
                 </a>
                 <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-expanded="false" aria-controls="mainNavActions">Menu</button>
                 <div class="nav-actions" id="mainNavActions">
@@ -2722,10 +2722,38 @@ def ui_signup():
     err_html = err if "<a" in err else html.escape(err)
     social_html = """
       <div class="mt-4 grid grid-cols-2 gap-2">
-        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/google?intent=signup">Continue with Google</a>
-        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/microsoft?intent=signup">Continue with Microsoft</a>
-        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/linkedin?intent=signup">Continue with LinkedIn</a>
-        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/facebook?intent=signup">Continue with Facebook</a>
+        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/google?intent=signup">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
+            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3-3C17.2 1.8 14.8 1 12 1 7.7 1 3.9 3.5 2.1 7.1l3.5 2.7C6.5 7 9 5 12 5z"></path>
+            <path fill="#34A853" d="M12 23c2.8 0 5.2-.9 7-2.5l-3.2-2.5c-1 .7-2.3 1.2-3.8 1.2-3 0-5.5-2-6.4-4.8l-3.6 2.8C3.8 20.5 7.6 23 12 23z"></path>
+            <path fill="#FBBC05" d="M5.6 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.7.4-2.4L2 6.8C1.3 8.3 1 10.1 1 12s.3 3.7 1 5.2l3.6-2.8z"></path>
+            <path fill="#4285F4" d="M23 12c0-.8-.1-1.5-.2-2.2H12v4.2h6.2c-.3 1.4-1.1 2.7-2.4 3.5l3.2 2.5c1.9-1.8 3-4.4 3-8z"></path>
+          </svg>
+          Continue with Google
+        </a>
+        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/microsoft?intent=signup">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
+            <rect x="2" y="2" width="9" height="9" fill="#F25022"></rect>
+            <rect x="13" y="2" width="9" height="9" fill="#7FBA00"></rect>
+            <rect x="2" y="13" width="9" height="9" fill="#00A4EF"></rect>
+            <rect x="13" y="13" width="9" height="9" fill="#FFB900"></rect>
+          </svg>
+          Continue with Microsoft
+        </a>
+        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/linkedin?intent=signup">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
+            <rect x="1" y="1" width="22" height="22" rx="4" fill="#0A66C2"></rect>
+            <path fill="#fff" d="M7.1 9h2.4v7.6H7.1V9zm1.2-3.8c.8 0 1.4.6 1.4 1.4S9.1 8 8.3 8 6.9 7.4 6.9 6.6s.6-1.4 1.4-1.4zm2.7 3.8h2.3v1c.3-.6 1.1-1.2 2.3-1.2 2.4 0 2.9 1.6 2.9 3.7v4.1h-2.4v-3.6c0-.9 0-2-1.2-2s-1.4.9-1.4 2v3.6H11V9z"></path>
+          </svg>
+          Continue with LinkedIn
+        </a>
+        <a class="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300" href="/auth/facebook?intent=signup">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
+            <circle cx="12" cy="12" r="11" fill="#1877F2"></circle>
+            <path fill="#fff" d="M13.6 8.2h1.8V5.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H6.6v3.1h2.6v4.8h3.2v-4.8h2.5l.4-3.1h-2.9V9.7c0-.9.2-1.5 1.2-1.5z"></path>
+          </svg>
+          Continue with Facebook
+        </a>
       </div>
       <div class="mt-3 text-xs text-slate-500">or create account with email</div>
     """ if not oauth_flow else ""
@@ -2747,7 +2775,7 @@ def ui_signup():
     <div class="bg-white border border-violet-100 rounded-[28px] shadow-[0_26px_90px_-36px_rgba(124,58,237,0.48)] overflow-hidden grid lg:grid-cols-2">
       <div class="p-8 sm:p-10 text-white bg-gradient-to-br from-violet-700 via-fuchsia-600 to-indigo-600">
         <a href="/" class="inline-flex items-center rounded-2xl border border-white/50 bg-white/95 px-4 py-3 shadow-xl shadow-black/10">
-          <img src="/static/logos/hurkfield-logo-tight.png" alt="HurkField logo" class="h-16 md:h-20 w-auto max-w-[320px] object-contain" />
+          <img src="/static/logos/hurkfield-logo-tight-crisp.png" alt="HurkField logo" class="h-12 md:h-14 w-auto max-w-[260px] object-contain" />
         </a>
         <h2 class="text-3xl sm:text-4xl font-extrabold mt-5 tracking-tight">Create your HurkField workspace</h2>
         <p class="text-white/90 mt-3 text-sm sm:text-base leading-relaxed">Set up a secure workspace to build forms, assign enumerators, and monitor submissions.</p>
@@ -9209,9 +9237,9 @@ def ui_dashboard():
         <aside class="border-r border-slate-200 bg-white p-5">
           <div class="mb-2">
             <img
-              src="/static/logos/hurkfield-logo-tight.png"
+              src="/static/logos/hurkfield-logo-tight-crisp.png"
               alt="HurkField logo"
-              class="h-16 w-auto max-w-[280px] object-contain"
+              class="h-12 w-auto max-w-[220px] object-contain"
             />
             <div class="text-[11px] text-slate-500">{html.escape(org_name or 'Workspace')}</div>
           </div>
