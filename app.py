@@ -2594,7 +2594,8 @@ def ui_signup():
     err = ""
     msg = ""
     oauth_pending = session.get("oauth_pending") or {}
-    oauth_flow = request.values.get("oauth") == "1" or request.form.get("oauth_flow") == "1" or bool(oauth_pending)
+    direct_email_signup = request.values.get("email_signup") == "1"
+    oauth_flow = (request.values.get("oauth") == "1" or request.form.get("oauth_flow") == "1") and not direct_email_signup
     from_login_hint = request.args.get("from") == "login"
     if request.method == "POST":
         try:
@@ -2728,11 +2729,21 @@ def ui_signup():
       </div>
       <div class="mt-3 text-xs text-slate-500">or create account with email</div>
     """ if not oauth_flow else ""
+    oauth_email_fallback_html = """
+      <div class="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+        Prefer email and password? <a class="font-semibold underline" href="/signup?email_signup=1">Use direct email signup</a>.
+      </div>
+    """ if oauth_flow else ""
     control_cls = "mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-violet-500 focus:outline-none focus:ring-4 focus:ring-violet-100"
 
     html_page = f"""
 <div class="min-h-screen bg-gradient-to-b from-violet-50 via-white to-slate-50 py-8 sm:py-10">
   <div class="max-w-7xl mx-auto px-4 sm:px-6">
+    <div class="mb-4">
+      <a href="/" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-violet-300 hover:text-violet-700">
+        <span aria-hidden="true">←</span> Back to home
+      </a>
+    </div>
     <div class="bg-white border border-violet-100 rounded-[28px] shadow-[0_26px_90px_-36px_rgba(124,58,237,0.48)] overflow-hidden grid lg:grid-cols-2">
       <div class="p-8 sm:p-10 text-white bg-gradient-to-br from-violet-700 via-fuchsia-600 to-indigo-600">
         <a href="/" class="inline-flex items-center">
@@ -2774,6 +2785,7 @@ def ui_signup():
         <div class="text-sm text-slate-600 mt-1">Complete your organization profile to continue.</div>
         {"<div class='mt-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800'><b>No account found:</b> complete signup to create your workspace.</div>" if from_login_hint else ""}
         {f"<div class='mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'><b>Error:</b> {err_html}</div>" if err else ""}
+        {oauth_email_fallback_html}
         {social_html}
         <form method="POST" class="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
           <input type="hidden" name="oauth_flow" value="{1 if oauth_flow else 0}" />
@@ -2967,6 +2979,11 @@ def ui_login():
     html_page = f"""
     <div class="min-h-screen bg-gradient-to-br from-primaryLight via-white to-slate-100 py-10">
       <div class="max-w-6xl mx-auto px-5 lg:px-8">
+        <div class="mb-4">
+          <a href="/" class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-violet-300 hover:text-violet-700">
+            <span aria-hidden="true">←</span> Back to home
+          </a>
+        </div>
         <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
           <div class="grid lg:grid-cols-2">
             <div class="relative p-8 md:p-12 text-white bg-gradient-to-br from-[#6D28D9] via-[#7C3AED] to-[#8B5CF6]">
@@ -3153,6 +3170,7 @@ def resend_verification():
     msg_html = msg if "<a" in msg else html.escape(msg)
     html_page = f"""
     <div class="card" style="max-width:520px;margin:40px auto;">
+      <div class="muted" style="margin-bottom:8px"><a href="/">← Back to home</a></div>
       <h2 class="h2" style="margin-top:0">Resend verification</h2>
       <div class="muted">Enter your email to get a new verification link.</div>
       {f"<div class='card' style='border-color: rgba(231, 76, 60, .35);margin-top:12px'><b>Error:</b> {html.escape(err)}</div>" if err else ""}
@@ -3193,6 +3211,7 @@ def forgot_password():
     msg_html = msg if "<a" in msg else html.escape(msg)
     html_page = f"""
     <div class="card" style="max-width:520px;margin:40px auto;">
+      <div class="muted" style="margin-bottom:8px"><a href="/">← Back to home</a></div>
       <h2 class="h2" style="margin-top:0">Reset password</h2>
       <div class="muted">Enter your email to receive a reset link.</div>
       {f"<div class='card' style='border-color: rgba(231, 76, 60, .35);margin-top:12px'><b>Error:</b> {html.escape(err)}</div>" if err else ""}
@@ -3242,6 +3261,7 @@ def reset_password():
 
     html_page = f"""
     <div class="card" style="max-width:520px;margin:40px auto;">
+      <div class="muted" style="margin-bottom:8px"><a href="/">← Back to home</a></div>
       <h2 class="h2" style="margin-top:0">Choose a new password</h2>
       {f"<div class='card' style='border-color: rgba(231, 76, 60, .35);margin-top:12px'><b>Error:</b> {html.escape(err)}</div>" if err else ""}
       <form method="POST" class="stack" style="margin-top:16px">
