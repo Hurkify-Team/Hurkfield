@@ -13434,7 +13434,7 @@ def ui_project_detail(project_id):
             <a class="proj-link-btn" href="{url_for('ui_surveys')}{proj_suffix}">Submissions <span>→</span></a>
             <a class="proj-link-btn" href="{url_for('ui_qa')}{proj_suffix}">QA Alerts <span>→</span></a>
             <a class="proj-link-btn" href="{url_for('ui_exports')}{proj_suffix}">Exports <span>→</span></a>
-            <a class="proj-link-btn" href="{url_for('ui_project_coverage', project_id=project_id)}{key_q}">Coverage <span>→</span></a>
+            <a class="proj-link-btn" href="{url_for('ui_project_coverage', project_id=project_id)}{key_q}">Field areas <span>→</span></a>
             <a class="proj-link-btn" href="{url_for('ui_project_enumerators', project_id=project_id)}{key_q}">Enumerators <span>→</span></a>
             <a class="proj-link-btn" href="{url_for('ui_project_assignments', project_id=project_id)}{key_q}">Assignments <span>→</span></a>
             <a class="proj-link-btn" href="{url_for('ui_project_interviews', project_id=project_id)}{key_q}">Interviews <span>→</span></a>
@@ -14415,14 +14415,14 @@ def ui_project_coverage(project_id):
                 desc = (request.form.get("scheme_description") or "").strip()
                 scheme_id = cov.create_scheme(name, description=desc)
                 prj.update_project(project_id, coverage_scheme_id=int(scheme_id))
-                msg = "Coverage scheme created and set active."
+                msg = "Project area setup created and set active."
             elif action == "set_active_scheme":
                 scheme_id = request.form.get("scheme_id") or ""
                 scheme_id = int(scheme_id) if str(scheme_id).isdigit() else None
                 if not scheme_id:
                     raise ValueError("Select a coverage scheme first.")
                 prj.update_project(project_id, coverage_scheme_id=int(scheme_id))
-                msg = "Active coverage scheme updated."
+                msg = "Project area setup updated."
             elif action == "create_node":
                 if not scheme_id:
                     raise ValueError("Select a coverage scheme first.")
@@ -14748,19 +14748,19 @@ def ui_project_coverage(project_id):
           <div class="cov-grid-2">
             <form method="POST" class="stack">
               <input type="hidden" name="action" value="create_scheme" />
-              <h3 class="cov-form-title">Create a coverage set</h3>
+              <h3 class="cov-form-title">Create project area setup</h3>
               <input name="scheme_name" placeholder="e.g., Nigeria → State → LGA → Ward" />
               <input name="scheme_description" placeholder="Optional description (who/what this scheme covers)" />
-              <button class="btn btn-primary" type="submit">Create coverage set</button>
+              <button class="btn btn-primary" type="submit">Add field area</button>
             </form>
             <form method="POST" class="stack">
               <input type="hidden" name="action" value="set_active_scheme" />
-              <h3 class="cov-form-title">Select active coverage set</h3>
+              <h3 class="cov-form-title">Select active project area setup</h3>
               <select name="scheme_id">
                 {scheme_options}
               </select>
-              <div class="muted">Only one scheme can be active per project.</div>
-              <button class="btn" type="submit">Set active scheme</button>
+              <div class="muted">Only one project area setup can be active per project.</div>
+              <button class="btn" type="submit">Project Area Setup</button>
               <div class="muted" style="margin-top:6px">Current: <b>{html.escape(active_label)}</b></div>
             </form>
           </div>
@@ -14826,7 +14826,7 @@ def ui_project_coverage(project_id):
       </div>
     </div>
     """
-    return ui_shell("Coverage", html_page, show_project_switcher=False)
+    return ui_shell("Field areas", html_page, show_project_switcher=False)
 
 
 @app.route("/ui/projects/<int:project_id>/enumerators", methods=["GET", "POST"])
@@ -15317,7 +15317,7 @@ def ui_project_assignments(project_id):
                             (int(supervisor_id), int(project_id), int(cid), now_iso()),
                         )
                     conn.commit()
-                msg = "Supervisor coverage updated."
+                msg = "Supervisor field areas updated."
             else:
                 enumerator_id = request.form.get("enumerator_id") or ""
                 coverage_node_id = request.form.get("coverage_node_id") or ""
@@ -15332,31 +15332,42 @@ def ui_project_assignments(project_id):
                 supervisor_id = int(supervisor_id) if str(supervisor_id).isdigit() else None
                 if sup_id:
                     supervisor_id = sup_id
+                selected_cov_ids = [int(cid) for cid in coverage_node_ids if str(cid).isdigit()]
+                primary_cov_id = int(coverage_node_id) if str(coverage_node_id).isdigit() else None
+                if primary_cov_id and int(primary_cov_id) not in selected_cov_ids:
+                    selected_cov_ids.insert(0, int(primary_cov_id))
+                if not primary_cov_id and selected_cov_ids:
+                    primary_cov_id = int(selected_cov_ids[0])
                 assignment_id = enum.assign_enumerator(
                     project_id,
                     int(enumerator_id),
-                    coverage_node_id=(int(coverage_node_id) if str(coverage_node_id).isdigit() else None),
+                    coverage_node_id=primary_cov_id,
                     template_id=(int(template_id) if str(template_id).isdigit() else None),
                     target_facilities_count=target_facilities_count,
                     scheme_id=(int(scheme_id) if str(scheme_id).isdigit() else None),
                     supervisor_id=supervisor_id,
                 )
-                # Apply multi-field areas for enumerator assignment (optional)
-                cov_ids = [int(cid) for cid in coverage_node_ids if str(cid).isdigit()]
-                if cov_ids:
+                # Link one or many field areas directly to this assignment.
+                if selected_cov_ids:
                     with get_conn() as conn:
                         cur = conn.cursor()
                         cur.execute("DELETE FROM assignment_coverage_nodes WHERE assignment_id=?", (int(assignment_id),))
-                        for cid in cov_ids:
+                        for cid in selected_cov_ids:
                             cur.execute(
                                 "INSERT OR IGNORE INTO assignment_coverage_nodes (assignment_id, coverage_node_id, created_at) VALUES (?, ?, ?)",
                                 (int(assignment_id), int(cid), now_iso()),
                             )
-                        # Set primary coverage_node_id as first selected
                         cur.execute(
                             "UPDATE enumerator_assignments SET coverage_node_id=? WHERE id=?",
-                            (int(cov_ids[0]), int(assignment_id)),
+                            (int(selected_cov_ids[0]), int(assignment_id)),
                         )
+                        # If a supervisor is selected, mirror these field areas to supervisor scope.
+                        if supervisor_id:
+                            for cid in selected_cov_ids:
+                                cur.execute(
+                                    "INSERT OR IGNORE INTO supervisor_coverage_nodes (supervisor_id, project_id, coverage_node_id, created_at) VALUES (?, ?, ?, ?)",
+                                    (int(supervisor_id), int(project_id), int(cid), now_iso()),
+                                )
                         conn.commit()
                 try:
                     prj.ensure_assignment_code(int(project_id), int(enumerator_id), int(assignment_id))
@@ -15372,7 +15383,7 @@ def ui_project_assignments(project_id):
                             continue
                         enum.add_assignment_facility(int(assignment_id), int(fid))
                         existing_ids.add(int(fid))
-                msg = "Assignment created."
+                msg = "Assignment created and field areas linked."
         except Exception as e:
             err = str(e)
 
@@ -15402,6 +15413,29 @@ def ui_project_assignments(project_id):
             assignment_code_map = {int(r["id"]): r["code_full"] for r in cur.fetchall() if r["code_full"]}
     except Exception:
         assignment_code_map = {}
+    assignment_area_map = {}
+    if assignments:
+        assignment_ids = [int(a.get("id")) for a in assignments if a.get("id")]
+        if assignment_ids:
+            try:
+                with get_conn() as conn:
+                    cur = conn.cursor()
+                    placeholders = ",".join(["?"] * len(assignment_ids))
+                    cur.execute(
+                        f"""
+                        SELECT assignment_id, coverage_node_id
+                        FROM assignment_coverage_nodes
+                        WHERE assignment_id IN ({placeholders})
+                        ORDER BY id ASC
+                        """,
+                        tuple(assignment_ids),
+                    )
+                    for r in cur.fetchall():
+                        aid = int(r["assignment_id"])
+                        cid = int(r["coverage_node_id"])
+                        assignment_area_map.setdefault(aid, []).append(cid)
+            except Exception:
+                assignment_area_map = {}
 
     enum_opts = "".join(
         [
@@ -15413,6 +15447,9 @@ def ui_project_assignments(project_id):
         [f"<option value='{t['id']}'>{t['name']}</option>" for t in templates]
     )
     node_opts = "<option value=''>Any field area</option>" + "".join(
+        [f"<option value='{n['id']}'>{n['name']}</option>" for n in nodes]
+    )
+    node_multi_opts = "".join(
         [f"<option value='{n['id']}'>{n['name']}</option>" for n in nodes]
     )
     scheme_opts = "".join(
@@ -15462,16 +15499,34 @@ def ui_project_assignments(project_id):
             except Exception:
                 pass
         e = enum_map.get(a.get("enumerator_id"), {})
-        n = node_map.get(a.get("coverage_node_id"), {})
         t = tpl_map.get(a.get("template_id"), {})
         code_full = assignment_code_map.get(int(a.get("id") or 0)) or "—"
         sup_name = ""
         if a.get("supervisor_id"):
             sup_name = (supervisor_map.get(int(a.get("supervisor_id"))) or {}).get("full_name") or ""
             supervised_count += 1
+        area_ids = [int(x) for x in assignment_area_map.get(assignment_id, []) if x]
+        if not area_ids and a.get("coverage_node_id"):
+            area_ids = [int(a.get("coverage_node_id"))]
+        area_names = []
+        for cid in area_ids:
+            label = (node_map.get(int(cid)) or {}).get("name")
+            if not label:
+                try:
+                    label = _field_area_label(int(cid))
+                except Exception:
+                    label = ""
+            if label:
+                area_names.append(str(label))
+        area_display = "—"
+        if area_names:
+            if len(area_names) > 3:
+                area_display = ", ".join(area_names[:3]) + f" +{len(area_names) - 3} more"
+            else:
+                area_display = ", ".join(area_names)
         if a.get("template_id"):
             templated_count += 1
-        if a.get("coverage_node_id"):
+        if area_ids:
             coverage_count += 1
         if code_full != "—":
             coded_count += 1
@@ -15496,7 +15551,7 @@ def ui_project_assignments(project_id):
             share_link = f"{share_path}?assign_id={a.get('id')}"
 
         e_name = html.escape(e.get("name") or "—")
-        n_name = html.escape(n.get("name") or "—")
+        n_name = html.escape(area_display)
         t_name = html.escape(t.get("name") or "—")
         sup_name_safe = html.escape(sup_name or "—")
         code_safe = html.escape(code_full)
@@ -15768,7 +15823,7 @@ def ui_project_assignments(project_id):
         </section>
 
         <section class="assign-card">
-          <div class="assign-tip"><b>Tip:</b> Leave Template empty to allow the enumerator to use any form in this project.</div>
+          <div class="assign-tip"><b>Tip:</b> Pick one or more field areas so each assignment is tied to a real operational location.</div>
           <h3 style="margin:0 0 12px">Create assignment</h3>
           <form method="POST" class="stack">
             <div class="assign-grid-3">
@@ -15795,13 +15850,13 @@ def ui_project_assignments(project_id):
             </div>
             <div class="assign-grid-2">
               <div class="assign-field">
-                <label>Coverage scheme</label>
+                <label>Project area setup</label>
                 <select name="scheme_id_picker" onchange="window.location='?scheme_id=' + this.value + '{scheme_key_q}'">
                   {scheme_opts}
                 </select>
               </div>
               <div class="assign-field">
-                <label>Primary field area</label>
+                <label>Field area (primary)</label>
                 <select name="coverage_node_id">
                   {node_opts}
                 </select>
@@ -15809,11 +15864,11 @@ def ui_project_assignments(project_id):
             </div>
             <div class="assign-grid-2">
               <div class="assign-field">
-                <label>Field areas (multi-select)</label>
+                <label>Field areas (one or many)</label>
                 <select name="coverage_node_ids" multiple size="5">
-                  {node_opts}
+                  {node_multi_opts}
                 </select>
-                <div class="muted" style="margin-top:6px">Optional: choose multiple LGAs/areas. The first selected becomes primary.</div>
+                <div class="muted" style="margin-top:6px">Choose multiple LGAs if needed. The first selected area becomes primary.</div>
               </div>
               <div class="assign-field">
                 <label>Target facilities</label>
@@ -15834,8 +15889,8 @@ def ui_project_assignments(project_id):
         {(
           f"""
           <section class="assign-card">
-            <h3 style="margin:0 0 8px">Supervisor coverage</h3>
-            <div class="assign-tip" style="margin-bottom:10px">Assign this supervisor to one or more field areas so their scope is explicit.</div>
+            <h3 style="margin:0 0 8px">Supervisor field areas</h3>
+            <div class="assign-tip" style="margin-bottom:10px">Assign one or multiple LGAs/areas (for example 5 LGAs) to control supervisor scope.</div>
             <form method="POST" class="stack">
               <input type="hidden" name="action" value="assign_supervisor_coverage" />
               <input type="hidden" name="supervisor_id" value="{sup_id}" />
@@ -15844,9 +15899,9 @@ def ui_project_assignments(project_id):
                 <select name="supervisor_coverage_node_ids" multiple size="8">
                   {sup_cov_options}
                 </select>
-                <div class="muted" style="margin-top:6px">Hold Cmd/Ctrl to select multiple LGAs.</div>
+                <div class="muted" style="margin-top:6px">Hold Cmd/Ctrl to select multiple field areas.</div>
               </div>
-              <button class="btn btn-primary" type="submit">Save supervisor coverage</button>
+              <button class="btn btn-primary" type="submit">Save supervisor field areas</button>
             </form>
           </section>
           """
@@ -15862,7 +15917,7 @@ def ui_project_assignments(project_id):
                 <th>Enumerator</th>
                 <th style="width:200px">Assignment code</th>
                 <th style="width:160px">Supervisor</th>
-                <th>Field area</th>
+                <th>Field area(s)</th>
                 <th>Template</th>
                 <th style="width:140px">Progress</th>
                 <th style="width:180px">Created</th>
