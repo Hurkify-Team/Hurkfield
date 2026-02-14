@@ -124,6 +124,10 @@ Set credentials in `.env`:
 Redirect URI for each provider:
 - `https://your-domain.com/auth/<provider>/callback`
 
+LinkedIn note:
+- Redirect URI must match exactly (scheme + host + path, no trailing slash).
+- For Render default domain, use `https://<service>.onrender.com/auth/linkedin/callback`.
+
 The app reads all settings from `config.py` (env‑backed). If a `.env` file exists, it is loaded automatically.
 
 ## Run modes

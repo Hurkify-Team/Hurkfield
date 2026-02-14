@@ -20,6 +20,7 @@ import requests
 
 from flask import Flask, request, jsonify, redirect, url_for, render_template_string, render_template, send_file, make_response, g, session
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 try:
     from authlib.integrations.flask_client import OAuth
     _OAUTH_IMPORT_ERROR = ""
@@ -78,6 +79,8 @@ app.secret_key = SECRET_KEY
 app.permanent_session_lifetime = timedelta(days=30)
 oauth = OAuth(app) if OAuth else None
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB
+# Respect X-Forwarded-* headers in hosted environments (Render/Reverse proxies)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 UI_BRAND = {
     "name": "HurkField",
@@ -1946,8 +1949,15 @@ def _oauth_redirect_uri(provider: str) -> str:
         (os.environ.get("OPENFIELD_PUBLIC_BASE_URL") or "").strip()
         or (os.environ.get("HURKFIELD_PUBLIC_BASE_URL") or "").strip()
     ).rstrip("/")
+    if not base_url:
+        render_host = (os.environ.get("RENDER_EXTERNAL_HOSTNAME") or "").strip().rstrip("/")
+        if render_host:
+            base_url = f"https://{render_host}"
     if base_url:
         return f"{base_url}{callback_path}"
+    host = (request.host or "").strip()
+    if host.endswith(".onrender.com"):
+        return f"https://{host}{callback_path}"
     return url_for("auth_callback", provider=provider, _external=True)
 
 
