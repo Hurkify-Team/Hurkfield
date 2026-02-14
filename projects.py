@@ -4,7 +4,7 @@ import re
 import hmac
 import hashlib
 from datetime import datetime
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 
 from db import get_conn
 
@@ -1280,30 +1280,33 @@ def get_default_project_id(organization_id: Optional[int] = None) -> int:
             return 0
         cols = _columns(conn, "projects")
         cur = conn.cursor()
+        where = []
+        params: List[Any] = []
         if organization_id is not None and "organization_id" in cols:
-            if "source" in cols:
-                cur.execute(
-                    "SELECT id FROM projects WHERE organization_id=? AND (source IS NULL OR source!='system_template_only') ORDER BY id ASC LIMIT 1",
-                    (int(organization_id),),
-                )
-            else:
-                cur.execute(
-                    "SELECT id FROM projects WHERE organization_id=? ORDER BY id ASC LIMIT 1",
-                    (int(organization_id),),
-                )
-        else:
-            if "source" in cols:
-                cur.execute(
-                    "SELECT id FROM projects WHERE (source IS NULL OR source!='system_template_only') ORDER BY id ASC LIMIT 1"
-                )
-            else:
-                cur.execute("SELECT id FROM projects ORDER BY id ASC LIMIT 1")
+            where.append("organization_id=?")
+            params.append(int(organization_id))
+        if "source" in cols:
+            where.append("(source IS NULL OR source!='system_template_only')")
+        if "deleted_at" in cols:
+            where.append("deleted_at IS NULL")
+        if "status" in cols:
+            where.append("(status IS NULL OR status!='ARCHIVED')")
+        elif "is_active" in cols:
+            where.append("COALESCE(is_active,1)=1")
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+        cur.execute(
+            f"SELECT id FROM projects {where_sql} ORDER BY id ASC LIMIT 1",
+            tuple(params),
+        )
         row = cur.fetchone()
         if row:
             return int(row["id"])
     return create_project(
         "Default Project",
-        "Auto-created for existing data",
+        "Auto-created starter project for this workspace.",
+        source="system_default",
+        assignment_mode="OPTIONAL",
+        status="ACTIVE",
         template_id=None,
         organization_id=organization_id,
     )

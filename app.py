@@ -2478,6 +2478,10 @@ def _bootstrap_login_user_from_oauth(email: str, name: str, provider: str, oauth
             if updates:
                 conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE id=?", (*values, int(user_id)))
                 conn.commit()
+        try:
+            prj.get_default_project_id(int(org_id))
+        except Exception:
+            pass
     except Exception:
         return None
 
@@ -2780,6 +2784,10 @@ def ui_signup():
                 email_verified=verified_flag,
                 status=user_status,
             )
+            try:
+                prj.get_default_project_id(int(organization_id))
+            except Exception:
+                pass
 
             session.pop("oauth_pending", None)
 
