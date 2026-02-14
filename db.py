@@ -203,10 +203,16 @@ def init_db() -> None:
                   gps_timestamp TEXT,
                   -- Coverage (optional)
                   coverage_node_id INTEGER,
+                  coverage_node_name TEXT,
+                  -- QA flags (optional)
+                  qa_flags TEXT,
+                  gps_missing_flag INTEGER NOT NULL DEFAULT 0,
+                  duplicate_flag INTEGER NOT NULL DEFAULT 0,
                   -- Project linkage (optional)
                   project_id INTEGER,
                   enumerator_id INTEGER,
                   assignment_id INTEGER,
+                  updated_at TEXT,
                   FOREIGN KEY(facility_id) REFERENCES facilities(id) ON DELETE CASCADE
                 )
                 """
@@ -223,6 +229,11 @@ def init_db() -> None:
             _add_column_if_missing(conn, "surveys", "review_reason TEXT")
             _add_column_if_missing(conn, "surveys", "reviewed_at TEXT")
             _add_column_if_missing(conn, "surveys", "reviewed_by TEXT")
+            _add_column_if_missing(conn, "surveys", "coverage_node_name TEXT")
+            _add_column_if_missing(conn, "surveys", "qa_flags TEXT")
+            _add_column_if_missing(conn, "surveys", "gps_missing_flag INTEGER NOT NULL DEFAULT 0")
+            _add_column_if_missing(conn, "surveys", "duplicate_flag INTEGER NOT NULL DEFAULT 0")
+            _add_column_if_missing(conn, "surveys", "updated_at TEXT")
 
         if not _table_exists(conn, "survey_answers"):
             cur.execute(
@@ -763,6 +774,7 @@ def init_db() -> None:
         cur.execute("CREATE INDEX IF NOT EXISTS idx_surveys_status ON surveys(status)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_surveys_enum_name ON surveys(enumerator_name)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_surveys_project ON surveys(project_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_surveys_coverage_node ON surveys(coverage_node_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_surveys_enum_id ON surveys(enumerator_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_surveys_supervisor ON surveys(supervisor_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_surveys_email ON surveys(respondent_email)")

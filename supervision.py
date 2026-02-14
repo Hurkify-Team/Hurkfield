@@ -170,9 +170,31 @@ def filter_surveys(
         where.append("s.project_id = ?")
         params.append(_safe_int(project_id))
 
-    # Supervisor coverage filter (only if supervisor_id provided)
+    # Supervisor scope filter (owner scope + optional field area scope)
     if supervisor_id:
         sup_id_int = _safe_int(supervisor_id)
+        sup_scope_clauses = []
+        if _surveys_has("supervisor_id"):
+            sup_scope_clauses.append("s.supervisor_id=?")
+            params.append(sup_id_int)
+        if _surveys_has("assignment_id") and _table_exists("enumerator_assignments"):
+            ea_cols = _table_columns("enumerator_assignments")
+            if "supervisor_id" in ea_cols:
+                sup_scope_clauses.append(
+                    """
+                    s.assignment_id IN (
+                      SELECT id
+                      FROM enumerator_assignments
+                      WHERE supervisor_id=?
+                    )
+                    """
+                )
+                params.append(sup_id_int)
+        if sup_scope_clauses:
+            where.append("(" + " OR ".join(sup_scope_clauses) + ")")
+        else:
+            where.append("1=0")
+
         cov_nodes = _supervisor_coverage_nodes(sup_id_int, _safe_int(project_id) if project_id else None)
         if cov_nodes:
             placeholders = ",".join(["?"] * len(cov_nodes))
@@ -193,9 +215,6 @@ def filter_surveys(
                 params.extend(cov_nodes)
                 if len(cov_clauses) > 1:
                     params.extend(cov_nodes)
-        else:
-            # Supervisor with no assigned coverage sees no surveys
-            where.append("1=0")
 
     if date_from:
         where.append("date(s.created_at) >= date(?)")
@@ -423,13 +442,37 @@ def get_survey_details(
         coverage_node_id=srow_d.get("coverage_node_id"),
         answers=answers,
     )
+
+    merged_flags: List[str] = list(qa.flags or [])
     if srow_d.get("qa_flags"):
-        extra_flags = [f for f in (srow_d.get("qa_flags") or "").split(",") if f]
-        qa.flags = list(set((qa.flags or []) + extra_flags))
-    if int(srow_d.get("gps_missing_flag") or 0) == 1 and "GPS_MISSING" not in (qa.flags or []):
-        qa.flags = (qa.flags or []) + ["GPS_MISSING"]
+        merged_flags.extend([f for f in (srow_d.get("qa_flags") or "").split(",") if f])
+    if int(srow_d.get("gps_missing_flag") or 0) == 1:
+        merged_flags.append("GPS_MISSING")
     if int(srow_d.get("duplicate_flag") or 0) == 1:
-        qa.flags = (qa.flags or []) + ["DUPLICATE_FACILITY_DAY"]
+        merged_flags.append("DUPLICATE_FACILITY_DAY")
+
+    # Preserve order while de-duplicating.
+    seen = set()
+    normalized_flags: List[str] = []
+    for f in merged_flags:
+        key = (f or "").strip().upper()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        normalized_flags.append(key)
+    qa.flags = normalized_flags
+
+    severity_boost = 0.0
+    if "GPS_OUTSIDE_FIELD_AREA" in seen or "GPS_OUTSIDE_COVERAGE" in seen:
+        severity_boost += 0.25
+    if "FIELD_AREA_CLUSTER_SPIKE" in seen:
+        severity_boost += 0.20
+    if "UNLISTED_FACILITY_USED" in seen:
+        severity_boost += 0.12
+    if "DUPLICATE_FACILITY_DAY" in seen:
+        severity_boost += 0.15
+    if severity_boost > 0:
+        qa.severity = round(min(1.0, float(qa.severity or 0) + severity_boost), 4)
 
     return header, answers, qa
 
@@ -624,8 +667,16 @@ def qa_alerts_dashboard_filtered(
         if not header:
             continue
 
-        # Only alert if non-trivial
-        if qa.severity >= 0.30 or ("MISSING_REQUIRED" in (qa.flags or [])):
+        # Alert when severity is notable or when field-area control flags are present.
+        qa_flags_upper = {(f or "").strip().upper() for f in (qa.flags or []) if f}
+        critical_scope_flags = {
+            "GPS_OUTSIDE_FIELD_AREA",
+            "GPS_OUTSIDE_COVERAGE",
+            "FIELD_AREA_CLUSTER_SPIKE",
+            "UNLISTED_FACILITY_USED",
+            "DUPLICATE_FACILITY_DAY",
+        }
+        if qa.severity >= 0.30 or ("MISSING_REQUIRED" in qa_flags_upper) or bool(qa_flags_upper.intersection(critical_scope_flags)):
             alerts.append(
                 QAAlert(
                     survey_id=int(sid),

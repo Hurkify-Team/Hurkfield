@@ -425,6 +425,114 @@ def render_project_analytics(project: Dict[str, Any], admin_key: str, args: Mapp
     expected_coverage = project.get("expected_coverage")
     coverage_target = int(expected_coverage) if expected_coverage is not None else coverage_total
     coverage_pct = int((coverage_done / coverage_target) * 100) if coverage_target else 0
+    coverage_node_map = {int(n.get("id")): n for n in coverage_nodes if n.get("id") is not None}
+    field_area_stats: List[Dict[str, Any]] = []
+    high_risk_field_areas = 0
+    field_area_risk_rows: List[str] = []
+    if scheme_id:
+        where = ["project_id=?", "coverage_node_id IS NOT NULL"]
+        params = [int(project_id)]
+        if template_id and sup._surveys_has("template_id"):
+            where.append("template_id=?")
+            params.append(int(template_id))
+        if date_from:
+            where.append("date(created_at) >= date(?)")
+            params.append(date_from)
+        if date_to:
+            where.append("date(created_at) <= date(?)")
+            params.append(date_to)
+        if sup._surveys_has("deleted_at"):
+            where.append("deleted_at IS NULL")
+        where_sql = " AND ".join(where)
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                f"""
+                SELECT coverage_node_id, status, qa_flags
+                FROM surveys
+                WHERE {where_sql}
+                """,
+                tuple(params),
+            )
+            stats_map: Dict[int, Dict[str, Any]] = {}
+            for r in cur.fetchall():
+                rd = dict(r)
+                try:
+                    cid = int(rd["coverage_node_id"])
+                except Exception:
+                    continue
+                rec = stats_map.setdefault(
+                    cid,
+                    {
+                        "coverage_node_id": cid,
+                        "total": 0,
+                        "completed": 0,
+                        "qa_hits": 0,
+                        "gps_outside": 0,
+                        "cluster_spike": 0,
+                        "unlisted_facility": 0,
+                        "duplicates": 0,
+                    },
+                )
+                rec["total"] += 1
+                if (rd.get("status") or "").upper() == "COMPLETED":
+                    rec["completed"] += 1
+                flags = {(f or "").strip().upper() for f in str(rd.get("qa_flags") or "").split(",") if (f or "").strip()}
+                if flags:
+                    rec["qa_hits"] += 1
+                if "GPS_OUTSIDE_FIELD_AREA" in flags or "GPS_OUTSIDE_COVERAGE" in flags:
+                    rec["gps_outside"] += 1
+                if "FIELD_AREA_CLUSTER_SPIKE" in flags:
+                    rec["cluster_spike"] += 1
+                if "UNLISTED_FACILITY_USED" in flags:
+                    rec["unlisted_facility"] += 1
+                if "DUPLICATE_FACILITY_DAY" in flags:
+                    rec["duplicates"] += 1
+        for cid, rec in stats_map.items():
+            total = int(rec.get("total") or 0)
+            if total <= 0:
+                continue
+            risk_score = (
+                (int(rec.get("gps_outside") or 0) * 0.35)
+                + (int(rec.get("cluster_spike") or 0) * 0.30)
+                + (int(rec.get("unlisted_facility") or 0) * 0.20)
+                + (int(rec.get("duplicates") or 0) * 0.15)
+            ) / float(total)
+            rec["risk_score"] = risk_score
+            if risk_score >= 0.2:
+                high_risk_field_areas += 1
+            field_area_stats.append(rec)
+
+        field_area_stats.sort(key=lambda r: (r.get("risk_score") or 0, r.get("total") or 0), reverse=True)
+        for rec in field_area_stats[:80]:
+            node = coverage_node_map.get(int(rec.get("coverage_node_id")))
+            parent_name = "—"
+            if node and node.get("parent_id"):
+                parent = coverage_node_map.get(int(node.get("parent_id")))
+                if parent:
+                    parent_name = parent.get("name") or "—"
+            risk_pct = int(round((float(rec.get("risk_score") or 0)) * 100))
+            risk_tone = "#16a34a"
+            if risk_pct >= 40:
+                risk_tone = "#dc2626"
+            elif risk_pct >= 20:
+                risk_tone = "#f59e0b"
+            field_area_risk_rows.append(
+                f"""
+                <tr>
+                  <td><span class='template-id'>#{int(rec.get('coverage_node_id'))}</span></td>
+                  <td>{(node.get('name') if node else 'Unknown')}</td>
+                  <td class='muted'>{parent_name}</td>
+                  <td>{int(rec.get('completed') or 0)}/{int(rec.get('total') or 0)}</td>
+                  <td>{int(rec.get('gps_outside') or 0)}</td>
+                  <td>{int(rec.get('cluster_spike') or 0)}</td>
+                  <td>{int(rec.get('unlisted_facility') or 0)}</td>
+                  <td>{int(rec.get('duplicates') or 0)}</td>
+                  <td><span style='font-weight:800;color:{risk_tone}'>{risk_pct}%</span></td>
+                </tr>
+                """
+            )
+    field_area_total_hits = sum(int(r.get("qa_hits") or 0) for r in field_area_stats)
 
     tab_overview_class = "btn btn-sm btn-primary" if tab == "overview" else "btn btn-sm"
     tab_enum_class = "btn btn-sm btn-primary" if tab == "enumerators" else "btn btn-sm"
@@ -1215,6 +1323,12 @@ def render_project_analytics(project: Dict[str, Any], admin_key: str, args: Mapp
         <div class='ana-card'>
           <div class='ana-kpi'><div class='label'>Coverage %</div><div class='value'>{coverage_pct}%</div></div>
         </div>
+        <div class='ana-card'>
+          <div class='ana-kpi'><div class='label'>High-risk field areas</div><div class='value'>{high_risk_field_areas}</div></div>
+        </div>
+        <div class='ana-card'>
+          <div class='ana-kpi'><div class='label'>Field QA hits</div><div class='value'>{field_area_total_hits}</div></div>
+        </div>
       </div>
       <div class='card' style='margin-top:12px'>
         <div class='muted' style='margin-bottom:8px'>Gaps (not yet covered)</div>
@@ -1222,6 +1336,27 @@ def render_project_analytics(project: Dict[str, Any], admin_key: str, args: Mapp
           <thead><tr><th>ID</th><th>Location</th><th>Parent</th></tr></thead>
           <tbody>
             {("".join([f"<tr><td><span class='template-id'>#{n.get('id')}</span></td><td>{n.get('name')}</td><td class='muted'>{next((p.get('name') for p in coverage_nodes if p.get('id') == n.get('parent_id')), '—')}</td></tr>" for n in missing_nodes[:50]]) if missing_nodes else "<tr><td colspan='3' class='muted' style='padding:18px'>No coverage gaps detected.</td></tr>")}
+          </tbody>
+        </table>
+      </div>
+      <div class='card' style='margin-top:12px'>
+        <div class='muted' style='margin-bottom:8px'>Field area risk monitor</div>
+        <table class='table'>
+          <thead>
+            <tr>
+              <th style='width:90px'>ID</th>
+              <th>Field area</th>
+              <th>Parent</th>
+              <th style='width:130px'>Completed</th>
+              <th style='width:120px'>GPS outside</th>
+              <th style='width:120px'>Cluster</th>
+              <th style='width:130px'>Unlisted</th>
+              <th style='width:110px'>Duplicates</th>
+              <th style='width:110px'>Risk</th>
+            </tr>
+          </thead>
+          <tbody>
+            {("".join(field_area_risk_rows) if field_area_risk_rows else "<tr><td colspan='9' class='muted' style='padding:18px'>No field-area risk signals yet.</td></tr>")}
           </tbody>
         </table>
       </div>

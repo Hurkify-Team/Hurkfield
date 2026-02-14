@@ -1330,6 +1330,110 @@ def _assignment_is_active(assignment: dict | None) -> bool:
     return True
 
 
+def _assignment_field_area_ids(assignment_id: Optional[int], primary_node_id: Optional[int] = None) -> List[int]:
+    ids: List[int] = []
+    seen: set[int] = set()
+
+    def _push(val):
+        try:
+            iv = int(val)
+        except Exception:
+            return
+        if iv <= 0 or iv in seen:
+            return
+        seen.add(iv)
+        ids.append(iv)
+
+    _push(primary_node_id)
+
+    if assignment_id is None:
+        return ids
+
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name='assignment_coverage_nodes'
+                LIMIT 1
+                """
+            )
+            if cur.fetchone():
+                cur.execute(
+                    """
+                    SELECT coverage_node_id
+                    FROM assignment_coverage_nodes
+                    WHERE assignment_id=?
+                    ORDER BY id ASC
+                    """,
+                    (int(assignment_id),),
+                )
+                for r in cur.fetchall():
+                    _push(r["coverage_node_id"])
+    except Exception:
+        pass
+
+    return ids
+
+
+def _field_area_label(node_id: Optional[int]) -> str:
+    if not node_id:
+        return ""
+    try:
+        nid = int(node_id)
+    except Exception:
+        return ""
+    try:
+        node = cov.get_node(nid)
+        if not node:
+            return ""
+        names = []
+        guard = 0
+        while node and guard < 16:
+            names.append((node.get("name") or "").strip())
+            pid = node.get("parent_id")
+            if not pid:
+                break
+            node = cov.get_node(int(pid))
+            guard += 1
+        names = [n for n in reversed(names) if n]
+        return " / ".join(names)
+    except Exception:
+        return ""
+
+
+def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> Optional[float]:
+    try:
+        from math import radians, sin, cos, asin, sqrt
+        r = 6371000.0
+        dlat = radians(float(lat2) - float(lat1))
+        dlng = radians(float(lng2) - float(lng1))
+        a = sin(dlat / 2) ** 2 + cos(radians(float(lat1))) * cos(radians(float(lat2))) * sin(dlng / 2) ** 2
+        c = 2 * asin(sqrt(a))
+        return r * c
+    except Exception:
+        return None
+
+
+def _gps_field_area_check(coverage_node_id: Optional[int], gps_lat, gps_lng) -> tuple[bool, Optional[float], Optional[float]]:
+    if coverage_node_id is None or gps_lat is None or gps_lng is None:
+        return (False, None, None)
+    try:
+        node = cov.get_node(int(coverage_node_id))
+    except Exception:
+        node = None
+    if not node:
+        return (False, None, None)
+    if node.get("gps_lat") is None or node.get("gps_lng") is None:
+        return (False, None, None)
+    dist_m = _haversine_m(float(gps_lat), float(gps_lng), float(node.get("gps_lat")), float(node.get("gps_lng")))
+    if dist_m is None:
+        return (False, None, None)
+    radius_m = float(node.get("gps_radius_m")) if node.get("gps_radius_m") is not None else 5000.0
+    return (bool(dist_m > radius_m), float(dist_m), float(radius_m))
+
+
 def facilities_cols():
     global _FACILITIES_COLS
     if _FACILITIES_COLS is None:
@@ -3763,6 +3867,52 @@ def current_org_id():
         return None
 
 
+def _supervisor_field_area_ids(supervisor_id: Optional[int], project_id: Optional[int] = None) -> set[int]:
+    if supervisor_id is None:
+        return set()
+    ids: set[int] = set()
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name='supervisor_coverage_nodes'
+                LIMIT 1
+                """
+            )
+            if not cur.fetchone():
+                return set()
+            if project_id is not None:
+                cur.execute(
+                    """
+                    SELECT coverage_node_id
+                    FROM supervisor_coverage_nodes
+                    WHERE supervisor_id=? AND project_id=?
+                    """,
+                    (int(supervisor_id), int(project_id)),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT coverage_node_id
+                    FROM supervisor_coverage_nodes
+                    WHERE supervisor_id=?
+                    """,
+                    (int(supervisor_id),),
+                )
+            for r in cur.fetchall():
+                try:
+                    cid = int(r["coverage_node_id"])
+                except Exception:
+                    continue
+                if cid > 0:
+                    ids.add(cid)
+    except Exception:
+        return set()
+    return ids
+
+
 def _scope_allows_project(project_id: int) -> bool:
     sup = current_supervisor()
     if not sup:
@@ -3773,6 +3923,9 @@ def _scope_allows_project(project_id: int) -> bool:
         sup_id = None
     if sup_id is not None:
         try:
+            sup_area_ids = _supervisor_field_area_ids(int(sup_id), int(project_id))
+            if sup_area_ids:
+                return True
             with get_conn() as conn:
                 cur = conn.cursor()
                 cur.execute(
@@ -3822,19 +3975,49 @@ def _scope_allows_survey(survey_id: int) -> bool:
     try:
         with get_conn() as conn:
             cur = conn.cursor()
-            cur.execute("SELECT project_id, supervisor_id FROM surveys WHERE id=? LIMIT 1", (int(survey_id),))
+            cur.execute(
+                "SELECT project_id, supervisor_id, coverage_node_id, assignment_id FROM surveys WHERE id=? LIMIT 1",
+                (int(survey_id),),
+            )
             row = cur.fetchone()
             if not row:
                 return False
             pid = row["project_id"]
             sup = current_supervisor()
-            if sup and row.get("supervisor_id") is not None:
+            if sup:
                 try:
                     sup_id = int(sup.get("id")) if sup.get("id") is not None else None
                 except Exception:
                     sup_id = None
-                if sup_id is not None and int(row.get("supervisor_id") or 0) != int(sup_id):
-                    return False
+                if sup_id is not None:
+                    row_supervisor_id = row["supervisor_id"] if "supervisor_id" in row.keys() else None
+                    if row_supervisor_id is not None and int(row_supervisor_id or 0) != int(sup_id):
+                        return False
+                    sup_area_ids = _supervisor_field_area_ids(int(sup_id), int(pid) if pid else None)
+                    if sup_area_ids:
+                        survey_area_id = row["coverage_node_id"] if "coverage_node_id" in row.keys() else None
+                        if survey_area_id is not None:
+                            try:
+                                if int(survey_area_id) in sup_area_ids:
+                                    pass
+                                else:
+                                    assignment_ref = row["assignment_id"] if "assignment_id" in row.keys() else None
+                                    area_ids = _assignment_field_area_ids(
+                                        int(assignment_ref) if assignment_ref is not None else None,
+                                        survey_area_id,
+                                    )
+                                    if not set(area_ids).intersection(sup_area_ids):
+                                        return False
+                            except Exception:
+                                return False
+                        else:
+                            assignment_ref = row["assignment_id"] if "assignment_id" in row.keys() else None
+                            area_ids = _assignment_field_area_ids(
+                                int(assignment_ref) if assignment_ref is not None else None,
+                                None,
+                            )
+                            if not set(area_ids).intersection(sup_area_ids):
+                                return False
     except Exception:
         return True
     if not pid:
@@ -3847,7 +4030,7 @@ def _scope_allows_assignment(assignment_id: int) -> bool:
         with get_conn() as conn:
             cur = conn.cursor()
             cur.execute(
-                "SELECT project_id, supervisor_id FROM enumerator_assignments WHERE id=? LIMIT 1",
+                "SELECT project_id, supervisor_id, coverage_node_id FROM enumerator_assignments WHERE id=? LIMIT 1",
                 (int(assignment_id),),
             )
             row = cur.fetchone()
@@ -3855,13 +4038,23 @@ def _scope_allows_assignment(assignment_id: int) -> bool:
                 return False
             pid = row["project_id"]
             sup = current_supervisor()
-            if sup and row.get("supervisor_id") is not None:
+            if sup:
                 try:
                     sup_id = int(sup.get("id")) if sup.get("id") is not None else None
                 except Exception:
                     sup_id = None
-                if sup_id is not None and int(row.get("supervisor_id") or 0) != int(sup_id):
-                    return False
+                if sup_id is not None:
+                    row_supervisor_id = row["supervisor_id"] if "supervisor_id" in row.keys() else None
+                    if row_supervisor_id is not None and int(row_supervisor_id or 0) != int(sup_id):
+                        return False
+                    sup_area_ids = _supervisor_field_area_ids(int(sup_id), int(pid) if pid else None)
+                    if sup_area_ids:
+                        area_ids = _assignment_field_area_ids(
+                            int(assignment_id),
+                            row["coverage_node_id"] if "coverage_node_id" in row.keys() else None,
+                        )
+                        if not set(area_ids).intersection(sup_area_ids):
+                            return False
     except Exception:
         return True
     if not pid:
@@ -4527,6 +4720,7 @@ def save_survey_from_share_link(template_row, form, existing_survey_id: Optional
     assignment = enum.get_assignment(assignment_id) if assignment_id else None
     enumerator_id = None
     assigned_enumerator = None
+    assignment_field_area_ids: List[int] = []
     prior_facility_id = None
     prior_assignment_id = None
     if existing_survey_id:
@@ -4551,6 +4745,10 @@ def save_survey_from_share_link(template_row, form, existing_survey_id: Optional
             enumerator_id = int(assigned_enumerator.get("id"))
             enumerator_name = assigned_enumerator.get("name") or enumerator_name
             enumerator_code = assigned_enumerator.get("code") or enumerator_code
+        assignment_field_area_ids = _assignment_field_area_ids(
+            int(assignment.get("id")),
+            assignment.get("coverage_node_id"),
+        )
         if assigned_enumerator and not _enumerator_is_active(assigned_enumerator):
             raise ValueError("Enumerator is inactive. Contact your supervisor.")
         if assignment and not _assignment_is_active(assignment):
@@ -4567,6 +4765,11 @@ def save_survey_from_share_link(template_row, form, existing_survey_id: Optional
                 int(project_id), enumerator_id, template_id=int(template_id) if template_id else None
             )
             assignment_id = int(assignment.get("id")) if assignment else assignment_id
+            if assignment:
+                assignment_field_area_ids = _assignment_field_area_ids(
+                    int(assignment.get("id")),
+                    assignment.get("coverage_node_id"),
+                )
             if assignment and not _assignment_is_active(assignment):
                 raise ValueError("Assignment is inactive. Contact your supervisor.")
 
@@ -4621,8 +4824,17 @@ def save_survey_from_share_link(template_row, form, existing_survey_id: Optional
                 raise
             except Exception:
                 pass
+    if assignment_field_area_ids:
+        if coverage_node_id is None:
+            if len(assignment_field_area_ids) == 1:
+                coverage_node_id = int(assignment_field_area_ids[0])
+            else:
+                raise ValueError("Select your assigned field area before submitting.")
+        if int(coverage_node_id) not in {int(x) for x in assignment_field_area_ids}:
+            raise ValueError("Selected field area is outside your assignment.")
+
     if enable_coverage and coverage_scheme_id and not coverage_node_id:
-        raise ValueError("Coverage selection is required for this template.")
+        raise ValueError("Field area selection is required for this template.")
     if enable_consent and consent_value not in ("YES", "NO"):
         raise ValueError("Consent selection is required for this template.")
     if enable_consent and consent_value == "YES" and not consent_signature:
@@ -4708,18 +4920,59 @@ def save_survey_from_share_link(template_row, form, existing_survey_id: Optional
         except Exception:
             supervisor_id = None
     if assignment and assignment.get("coverage_node_id"):
-        coverage_node_id = int(assignment.get("coverage_node_id"))
+        if not assignment_field_area_ids:
+            coverage_node_id = int(assignment.get("coverage_node_id"))
 
     coverage_node_name = None
     if coverage_node_id:
         node = cov.get_node(int(coverage_node_id))
         coverage_node_name = node.get("name") if node else None
 
+    gps_outside_field_area = False
+    gps_distance_m = None
+    gps_radius_m = None
+    if enable_gps and gps.get("gps_lat") is not None and gps.get("gps_lng") is not None and coverage_node_id:
+        gps_outside_field_area, gps_distance_m, gps_radius_m = _gps_field_area_check(
+            int(coverage_node_id),
+            gps.get("gps_lat"),
+            gps.get("gps_lng"),
+        )
+
+    cluster_flag = 0
+    if coverage_node_id and project_id:
+        try:
+            with get_conn() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    SELECT COUNT(*) AS c
+                    FROM surveys
+                    WHERE project_id=?
+                      AND coverage_node_id=?
+                      AND date(created_at)=date(?)
+                      AND COALESCE(enumerator_name,'')=?
+                    """,
+                    (int(project_id), int(coverage_node_id), now_iso(), enumerator_name),
+                )
+                cluster_flag = 1 if int(cur.fetchone()["c"] or 0) >= 10 else 0
+        except Exception:
+            cluster_flag = 0
+
+    facility_scope_mismatch = 0
+    if assignment and not assigned_facilities and allow_unlisted:
+        facility_scope_mismatch = 1
+
     qa_flags = []
     if gps_missing_flag:
         qa_flags.append("GPS_MISSING")
     if duplicate_flag:
         qa_flags.append("DUPLICATE_FACILITY_DAY")
+    if gps_outside_field_area:
+        qa_flags.append("GPS_OUTSIDE_FIELD_AREA")
+    if cluster_flag:
+        qa_flags.append("FIELD_AREA_CLUSTER_SPIKE")
+    if facility_scope_mismatch:
+        qa_flags.append("UNLISTED_FACILITY_USED")
     qa_flags_str = ",".join(qa_flags) if qa_flags else None
 
     if existing_survey_id:
@@ -5467,10 +5720,29 @@ def resolve_assignment():
         target = total_count if total_count else None
 
     coverage = None
+    assignment_field_areas = []
+    assignment_field_area_ids = _assignment_field_area_ids(
+        int(assignment_id) if assignment_id else None,
+        assignment.get("coverage_node_id") if assignment else None,
+    )
+    for cid in assignment_field_area_ids:
+        node = cov.get_node(int(cid))
+        if not node:
+            continue
+        assignment_field_areas.append(
+            {
+                "id": int(node.get("id")),
+                "name": node.get("name"),
+                "path": _field_area_label(int(node.get("id"))),
+            }
+        )
+
     if assignment and assignment.get("coverage_node_id"):
         node = cov.get_node(int(assignment.get("coverage_node_id")))
         if node:
             coverage = {"id": node.get("id"), "name": node.get("name")}
+    if not coverage and assignment_field_areas:
+        coverage = {"id": assignment_field_areas[0].get("id"), "name": assignment_field_areas[0].get("name")}
 
     project = prj.get_project(int(project_id))
     allow_unlisted = int(project.get("allow_unlisted_facilities") or 0) if project else 0
@@ -5486,6 +5758,7 @@ def resolve_assignment():
             "assignment": {
                 "id": assignment_id,
                 "coverage": coverage,
+                "field_areas": assignment_field_areas,
                 "target": target,
                 "completed": done_count,
                 "total": total_count,
@@ -5676,6 +5949,8 @@ def fill_form(token, project_id=None, review_mode: bool = False):
     assignment = enum.get_assignment(assign_id) if assign_id else None
     assigned_enumerator = None
     assigned_node = None
+    assigned_field_area_ids: List[int] = []
+    assigned_field_area_nodes: List[dict] = []
     assigned_facilities = []
     assignment_progress = {"completed": 0, "total": 0, "target": None}
     allow_unlisted = 0
@@ -5686,8 +5961,17 @@ def fill_form(token, project_id=None, review_mode: bool = False):
         if assignment.get("template_id") and int(assignment.get("template_id")) != int(template_id):
             return render_template_string("<h2>Form link inactive</h2><p>This form link is inactive.</p>"), 404
         assigned_enumerator = enum.get_enumerator(int(assignment.get("enumerator_id")))
+        assigned_field_area_ids = _assignment_field_area_ids(
+            int(assignment.get("id")),
+            assignment.get("coverage_node_id"),
+        )
         if assignment.get("coverage_node_id"):
             assigned_node = cov.get_node(int(assignment.get("coverage_node_id")))
+        if assigned_field_area_ids:
+            for cid in assigned_field_area_ids:
+                n = cov.get_node(int(cid))
+                if n:
+                    assigned_field_area_nodes.append(n)
         try:
             assigned_facilities = enum.list_assignment_facilities(int(assignment.get("id")))
             assignment_progress["completed"] = len([f for f in assigned_facilities if (f.get("status") or "").upper() == "DONE"])
@@ -5718,7 +6002,9 @@ def fill_form(token, project_id=None, review_mode: bool = False):
     if assigned_enumerator:
         sticky["enumerator_name"] = assigned_enumerator.get("name") or ""
         sticky["enumerator_code"] = assigned_enumerator.get("code") or ""
-    if assigned_node:
+    if len(assigned_field_area_ids) == 1:
+        sticky["coverage_node_id"] = str(assigned_field_area_ids[0])
+    elif assigned_node:
         sticky["coverage_node_id"] = str(assigned_node.get("id"))
     if prefill_email and not (request.form.get("respondent_email") or "").strip():
         sticky["respondent_email"] = prefill_email
@@ -5892,31 +6178,56 @@ def fill_form(token, project_id=None, review_mode: bool = False):
     # Coverage (optional)
     coverage_block = ""
     coverage_nodes = []
+    coverage_selector_mode = "none"
+    assigned_coverage_label = ""
     if enable_coverage and coverage_scheme_id:
         try:
-            coverage_nodes = cov.list_nodes(int(coverage_scheme_id), limit=5000)
+            all_coverage_nodes = cov.list_nodes(int(coverage_scheme_id), limit=5000)
         except Exception:
-            coverage_nodes = []
+            all_coverage_nodes = []
+        node_by_id = {int(n.get("id")): n for n in all_coverage_nodes if n.get("id") is not None}
+        assigned_coverage_label = _field_area_label(
+            int(sticky.get("coverage_node_id")) if str(sticky.get("coverage_node_id") or "").isdigit() else (
+                assigned_field_area_ids[0] if assigned_field_area_ids else None
+            )
+        )
 
-        assigned_label = ""
-        if assigned_node:
-            # best-effort label (no recursion needed for locked state)
-            assigned_label = assigned_node.get("name") or ""
+        if assignment and assigned_field_area_ids:
+            if len(assigned_field_area_ids) == 1:
+                coverage_selector_mode = "locked"
+                sticky["coverage_node_id"] = str(int(assigned_field_area_ids[0]))
+                if not assigned_coverage_label:
+                    assigned_coverage_label = _field_area_label(int(assigned_field_area_ids[0]))
+            else:
+                coverage_selector_mode = "assigned_select"
+                coverage_nodes = [node_by_id[cid] for cid in assigned_field_area_ids if cid in node_by_id]
+                if not sticky.get("coverage_node_id") and coverage_nodes:
+                    sticky["coverage_node_id"] = str(coverage_nodes[0].get("id"))
+        else:
+            coverage_selector_mode = "hierarchy"
+            coverage_nodes = all_coverage_nodes
+
+        assigned_select_opts = "".join(
+            [
+                f"<option value='{int(n.get('id'))}' {'selected' if str(n.get('id')) == str(sticky.get('coverage_node_id') or '') else ''}>{html.escape(_field_area_label(int(n.get('id'))) or (n.get('name') or 'Field area'))}</option>"
+                for n in coverage_nodes
+            ]
+        )
 
         coverage_block = f"""
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="section-title">Coverage location</div>
-              <div class="section-sub">Select the area you are covering (as assigned by your supervisor).</div>
+              <div class="section-title">Field area</div>
+              <div class="section-sub">Set the exact area this submission belongs to.</div>
             </div>
           </div>
           <div class="field-group">
-            <label>Coverage node <span class="req">Required</span></label>
-            <div class="muted hint">Choose the closest administrative area.</div>
-            {"<div class='muted' style='font-weight:700'>" + assigned_label + "</div>" if assigned_node else ""}
-            {"<div id='coverageSelector' class='row' style='gap:10px; flex-wrap:wrap; margin-top:6px;'></div>" if not assigned_node else ""}
-            <input type="hidden" name="coverage_node_id" data-required="1" value="{sticky.get('coverage_node_id','')}" />
+            <label>Field area <span class="req">Required</span></label>
+            <div class="muted hint">Use your assigned field area to keep submissions scoped correctly.</div>
+            {"<div class='muted' style='font-weight:700'>" + html.escape(assigned_coverage_label or "Assigned field area") + "</div><input type='hidden' name='coverage_node_id' data-required='1' value='" + html.escape(sticky.get('coverage_node_id','')) + "' />" if coverage_selector_mode == "locked" else ""}
+            {"<select name='coverage_node_id' data-required='1' style='margin-top:6px'><option value=''>Select assigned area</option>" + assigned_select_opts + "</select>" if coverage_selector_mode == "assigned_select" else ""}
+            {"<div id='coverageSelector' class='row' style='gap:10px; flex-wrap:wrap; margin-top:6px;'></div><input type='hidden' name='coverage_node_id' data-required='1' value='" + html.escape(sticky.get('coverage_node_id','')) + "' />" if coverage_selector_mode == "hierarchy" else ""}
           </div>
         </div>
         """
@@ -6347,7 +6658,7 @@ def fill_form(token, project_id=None, review_mode: bool = False):
         if not is_section_marker(qtext) and not is_media_marker(qtext) and int(is_required) == 1:
             required_names.append(f"q_{qid}")
 
-    assigned_coverage = assigned_node.get("name") if assigned_node else ""
+    assigned_coverage = assigned_coverage_label or (assigned_node.get("name") if assigned_node else "")
 
     offline_config = {
         "syncUrl": sync_url,
@@ -7407,16 +7718,24 @@ def fill_form(token, project_id=None, review_mode: bool = False):
                 const enumerator = (form.querySelector("[name='enumerator_name']") || {}).value || "—";
                 const code = (form.querySelector("[name='enumerator_code']") || {}).value || "—";
                 const coverageInput = form.querySelector("[name='coverage_node_id']");
-                const coverageText = coverageInput && coverageInput.dataset && coverageInput.dataset.coverageLabel
-                  ? coverageInput.dataset.coverageLabel
-                  : "—";
+                let coverageText = "—";
+                if(coverageInput){
+                  if(coverageInput.dataset && coverageInput.dataset.coverageLabel){
+                    coverageText = coverageInput.dataset.coverageLabel;
+                  }else if(coverageInput.tagName && coverageInput.tagName.toLowerCase() === "select"){
+                    const opt = coverageInput.options[coverageInput.selectedIndex];
+                    coverageText = opt ? (opt.text || opt.value || "—") : (coverageInput.value || "—");
+                  }else if(coverageInput.value){
+                    coverageText = coverageInput.value;
+                  }
+                }
                 const lines = [
                   `Facility: ${facility}`,
                   `Enumerator: ${enumerator}`,
                 ];
                 if(code && code !== "—") lines.push(`Enumerator code: ${code}`);
                 if(coverageInput){
-                  lines.push(`Coverage: ${coverageText}`);
+                  lines.push(`Field area: ${coverageText}`);
                 }
                 reviewKeyDetails.innerHTML = lines.map(l => `<div>${l}</div>`).join("");
               }
@@ -7538,7 +7857,16 @@ def fill_form(token, project_id=None, review_mode: bool = False):
                   if(enumProfilePanel) enumProfilePanel.style.display = "block";
                   if(enumProfileName) enumProfileName.innerText = data.enumerator?.name || "";
                   if(enumProfileProject) enumProfileProject.innerText = data.project?.name || "";
-                  if(enumProfileCoverage) enumProfileCoverage.innerText = data.assignment?.coverage?.name || "—";
+                  const resolvedAreas = Array.isArray(data.assignment?.field_areas) ? data.assignment.field_areas : [];
+                  if(enumProfileCoverage){
+                    if(resolvedAreas.length === 1){
+                      enumProfileCoverage.innerText = resolvedAreas[0].path || resolvedAreas[0].name || "—";
+                    }else if(resolvedAreas.length > 1){
+                      enumProfileCoverage.innerText = `${resolvedAreas.length} assigned areas`;
+                    }else{
+                      enumProfileCoverage.innerText = data.assignment?.coverage?.name || "—";
+                    }
+                  }
                   if(enumProfileProgress){
                     const target = data.assignment?.target;
                     const completed = data.assignment?.completed || 0;
@@ -7553,6 +7881,52 @@ def fill_form(token, project_id=None, review_mode: bool = False):
                   const assignInput = form.querySelector("[name='assign_id']");
                   if(assignInput && data.assignment?.id){
                     assignInput.value = data.assignment.id;
+                  }
+                  const coverageInput = form.querySelector("[name='coverage_node_id']");
+                  if(coverageInput && resolvedAreas.length > 0){
+                    if(resolvedAreas.length === 1){
+                      const only = resolvedAreas[0];
+                      coverageInput.value = only.id ? String(only.id) : "";
+                      coverageInput.dataset.coverageLabel = only.path || only.name || coverageInput.value || "";
+                      updateReviewSummary();
+                    }else{
+                      const applySelect = (selectEl) => {
+                        if(!selectEl) return;
+                        selectEl.innerHTML = `<option value="">Select assigned area</option>` + resolvedAreas.map(a=>{
+                          const label = a.path || a.name || String(a.id || "");
+                          const value = a.id ? String(a.id) : "";
+                          return `<option value="${value}">${label}</option>`;
+                        }).join("");
+                        const setFromSelect = () => {
+                          const opt = selectEl.options[selectEl.selectedIndex];
+                          coverageInput.value = selectEl.value || "";
+                          coverageInput.dataset.coverageLabel = opt ? (opt.text || "") : "";
+                          updateReviewSummary();
+                        };
+                        selectEl.addEventListener("change", setFromSelect);
+                        if(!coverageInput.value){
+                          const first = resolvedAreas.find(a => a.id);
+                          if(first){
+                            selectEl.value = String(first.id);
+                          }
+                        }else{
+                          selectEl.value = coverageInput.value;
+                        }
+                        setFromSelect();
+                      };
+                      if((coverageInput.tagName || "").toLowerCase() === "select"){
+                        applySelect(coverageInput);
+                      }else{
+                        const covRoot = document.getElementById("coverageSelector");
+                        if(covRoot){
+                          covRoot.innerHTML = "";
+                          const selectEl = document.createElement("select");
+                          selectEl.className = "coverage-level";
+                          covRoot.appendChild(selectEl);
+                          applySelect(selectEl);
+                        }
+                      }
+                    }
                   }
                   const hasFacilities = Array.isArray(data.facilities) && data.facilities.length > 0;
                   if(hasFacilities){
@@ -8217,12 +8591,23 @@ def fill_form(token, project_id=None, review_mode: bool = False):
               updateReviewSummary();
               updateSubmitState();
               initDraftFlow();
-              if(!{{ "true" if assigned_locked else "false" }}){
+              const coverageMode = "{{ coverage_selector_mode }}";
+              if(coverageMode === "hierarchy"){
                 buildCoverageSelector({{ coverage_nodes_json|safe }});
               }else{
                 const input = form.querySelector("[name='coverage_node_id']");
                 if(input){
-                  input.dataset.coverageLabel = "{{ assigned_node.get('name') if assigned_node else '' }}";
+                  if(coverageMode === "locked"){
+                    input.dataset.coverageLabel = {{ assigned_coverage_label|tojson }};
+                  }else if(coverageMode === "assigned_select"){
+                    const setSelectLabel = () => {
+                      const opt = input.options[input.selectedIndex];
+                      input.dataset.coverageLabel = opt ? (opt.text || opt.value || "") : (input.value || "");
+                      updateReviewSummary();
+                    };
+                    input.addEventListener("change", setSelectLabel);
+                    setSelectLabel();
+                  }
                 }
               }
 
@@ -8448,6 +8833,7 @@ def fill_form(token, project_id=None, review_mode: bool = False):
         edit_step_url=edit_step_url,
         required_names_json=json.dumps(required_names),
         coverage_nodes_json=json.dumps(coverage_nodes or []),
+        coverage_selector_mode=coverage_selector_mode,
         form_action=base_url,
         assign_id=(assign_id or ""),
         assigned_locked=True if assigned_enumerator else False,
@@ -8456,6 +8842,7 @@ def fill_form(token, project_id=None, review_mode: bool = False):
         assignment_progress=assignment_progress,
         project_name=project_name,
         assigned_coverage=assigned_coverage,
+        assigned_coverage_label=assigned_coverage_label,
         code_gate=code_gate,
         allow_unlisted=allow_unlisted,
         template_id=template_id,
@@ -10132,9 +10519,9 @@ def ui_organization():
 
     <div class="card" style="margin-top:16px">
       <details>
-        <summary style="cursor:pointer; font-weight:800; color:var(--primary);">What are coverage nodes?</summary>
+        <summary style="cursor:pointer; font-weight:800; color:var(--primary);">What are field areas?</summary>
         <div class="muted" style="margin-top:8px; line-height:1.6">
-          Coverage nodes are a structured map of responsibility. Assign enumerators to LGAs or facilities, restrict what they see on the form,
+          Field areas are a structured map of responsibility. Assign enumerators to LGAs or facilities, restrict what they see on the form,
           and power clean regional analytics. Build top-down: Country → State → LGA → Facility.
         </div>
       </details>
@@ -14048,7 +14435,7 @@ def ui_project_coverage(project_id):
                     gps_lng=gps_lng_val,
                     gps_radius_m=gps_radius_val,
                 )
-                msg = "Coverage node added."
+                msg = "Field area added."
             elif action == "update_node":
                 node_id = request.form.get("node_id") or ""
                 node_id = int(node_id) if str(node_id).isdigit() else None
@@ -14071,14 +14458,14 @@ def ui_project_coverage(project_id):
                     gps_lng=gps_lng_val,
                     gps_radius_m=gps_radius_val,
                 )
-                msg = "Coverage node updated."
+                msg = "Field area updated."
             elif action == "delete_node":
                 node_id = request.form.get("node_id") or ""
                 node_id = int(node_id) if str(node_id).isdigit() else None
                 if not node_id:
                     raise ValueError("Missing node to delete.")
                 cov.delete_node(node_id)
-                msg = "Coverage node deleted."
+                msg = "Field area deleted."
         except Exception as e:
             err = str(e)
 
@@ -14337,7 +14724,7 @@ def ui_project_coverage(project_id):
         <section class="cov-hero">
           <div class="cov-hero-row">
             <div>
-              <div class="cov-kicker">Coverage nodes</div>
+              <div class="cov-kicker">Field areas</div>
               <h1 class="cov-title">{html.escape(project.get('name') or 'Project')}</h1>
               <div class="cov-desc">Build a clean location tree (Country → State → LGA → Facility) and assign enumerators to nodes. Only one scheme is active per project.</div>
             </div>
@@ -14946,7 +15333,7 @@ def ui_project_assignments(project_id):
                     scheme_id=(int(scheme_id) if str(scheme_id).isdigit() else None),
                     supervisor_id=supervisor_id,
                 )
-                # Apply multi-coverage nodes for enumerator assignment (optional)
+                # Apply multi-field areas for enumerator assignment (optional)
                 cov_ids = [int(cid) for cid in coverage_node_ids if str(cid).isdigit()]
                 if cov_ids:
                     with get_conn() as conn:
@@ -15017,7 +15404,7 @@ def ui_project_assignments(project_id):
     tpl_opts = "<option value=''>Any template</option>" + "".join(
         [f"<option value='{t['id']}'>{t['name']}</option>" for t in templates]
     )
-    node_opts = "<option value=''>Any coverage node</option>" + "".join(
+    node_opts = "<option value=''>Any field area</option>" + "".join(
         [f"<option value='{n['id']}'>{n['name']}</option>" for n in nodes]
     )
     scheme_opts = "".join(
@@ -15333,7 +15720,7 @@ def ui_project_assignments(project_id):
             <div>
               <div class="assign-kicker">Assignment ops</div>
               <h1 class="assign-title">Assignments — {html.escape(project.get('name') or 'Project')}</h1>
-              <div class="assign-desc">Map enumerators to templates, coverage nodes, and supervisors. Share links instantly and track delivery in one place.</div>
+              <div class="assign-desc">Map enumerators to templates, field areas, and supervisors. Share links instantly and track delivery in one place.</div>
             </div>
             <div class="row" style="gap:10px; align-items:center;">
               <a class="btn" href="{url_for('ui_project_detail', project_id=project_id)}{key_q}">Back to project</a>
@@ -15406,7 +15793,7 @@ def ui_project_assignments(project_id):
                 </select>
               </div>
               <div class="assign-field">
-                <label>Primary coverage node</label>
+                <label>Primary field area</label>
                 <select name="coverage_node_id">
                   {node_opts}
                 </select>
@@ -15414,7 +15801,7 @@ def ui_project_assignments(project_id):
             </div>
             <div class="assign-grid-2">
               <div class="assign-field">
-                <label>Coverage nodes (multi-select)</label>
+                <label>Field areas (multi-select)</label>
                 <select name="coverage_node_ids" multiple size="5">
                   {node_opts}
                 </select>
@@ -15440,12 +15827,12 @@ def ui_project_assignments(project_id):
           f"""
           <section class="assign-card">
             <h3 style="margin:0 0 8px">Supervisor coverage</h3>
-            <div class="assign-tip" style="margin-bottom:10px">Assign this supervisor to one or more coverage nodes so their scope is explicit.</div>
+            <div class="assign-tip" style="margin-bottom:10px">Assign this supervisor to one or more field areas so their scope is explicit.</div>
             <form method="POST" class="stack">
               <input type="hidden" name="action" value="assign_supervisor_coverage" />
               <input type="hidden" name="supervisor_id" value="{sup_id}" />
               <div class="assign-field">
-                <label>Coverage nodes</label>
+                <label>Field areas</label>
                 <select name="supervisor_coverage_node_ids" multiple size="8">
                   {sup_cov_options}
                 </select>
@@ -15467,7 +15854,7 @@ def ui_project_assignments(project_id):
                 <th>Enumerator</th>
                 <th style="width:200px">Assignment code</th>
                 <th style="width:160px">Supervisor</th>
-                <th>Coverage node</th>
+                <th>Field area</th>
                 <th>Template</th>
                 <th style="width:140px">Progress</th>
                 <th style="width:180px">Created</th>
@@ -22588,7 +22975,7 @@ def ui_errors():
         if ctx.get("enumerator_code"):
             meta_bits.append(f"Code: {ctx.get('enumerator_code')}")
         if ctx.get("coverage_node_id"):
-            meta_bits.append(f"Coverage node: {ctx.get('coverage_node_id')}")
+            meta_bits.append(f"Field area: {ctx.get('coverage_node_id')}")
         meta = " · ".join(meta_bits) if meta_bits else "—"
         error_type = (r["error_type"] or "system").lower()
         type_class = "pill-system" if error_type != "validation" else "pill-validation"
@@ -23148,7 +23535,7 @@ def _create_demo_data() -> Dict[str, Any]:
     ]
     facility_ids = [get_or_create_facility_by_name(n) for n in facility_names]
 
-    # Coverage nodes (optional)
+    # Field areas (optional)
     coverage_nodes = []
     try:
         scheme_id = cov.create_scheme("Demo Coverage")
