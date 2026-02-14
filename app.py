@@ -2695,6 +2695,92 @@ def _get_invite(token: str):
     return data
 
 
+def _find_user_by_email_local(email: str):
+    clean = (email or "").strip().lower()
+    if not clean:
+        return None
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM users WHERE LOWER(email)=LOWER(?) LIMIT 1", (clean,))
+            row = cur.fetchone()
+            return dict(row) if row else None
+    except Exception:
+        return None
+
+
+def _notify_member_onboarding(
+    *,
+    org_id: int,
+    created_by_user_id: int | None,
+    inviter_name: str,
+    org_name: str,
+    member_email: str,
+    invite_role: str,
+    member_kind: str,
+    member_name: str = "",
+    access_key: str = "",
+    assignment_code: str = "",
+    task_link: str = "",
+) -> Dict[str, Any]:
+    """
+    Notify a new supervisor/enumerator with either:
+    - a workspace invite link (for new users), or
+    - a sign-in link (for existing users).
+    Returns metadata so UI can show manual links when SMTP is not configured.
+    """
+    email = (member_email or "").strip().lower()
+    if not email:
+        return {"ok": False, "reason": "missing_email", "sent": False}
+
+    role_upper = (invite_role or "SUPERVISOR").strip().upper()
+    role_label = "Supervisor" if role_upper == "SUPERVISOR" else "Team member"
+    kind_label = (member_kind or "team member").strip().lower()
+    existing_user = _find_user_by_email_local(email)
+    if existing_user:
+        entry_link = url_for("ui_login", _external=True)
+    else:
+        token = _create_invite(int(org_id), email, role_upper, created_by=created_by_user_id)
+        entry_link = url_for("accept_invite", token=token, _external=True)
+
+    note_parts = []
+    intro_line = f"You were added to HurkField as a {kind_label}."
+    if member_name:
+        intro_line = f"Hello {member_name}, you were added to HurkField as a {kind_label}."
+    note_parts.append(intro_line)
+    if access_key:
+        note_parts.append(f"Supervisor access key: {access_key}")
+    if assignment_code:
+        note_parts.append(f"Assignment code: {assignment_code}")
+    if task_link:
+        note_parts.append(f"Task link: {task_link}")
+    if existing_user:
+        note_parts.append("You already have an account. Sign in to continue.")
+    else:
+        note_parts.append("Use the invite link to create your account.")
+    note_text = "\n".join(note_parts)
+
+    subject, text_body, html_body = _email_template(
+        "invite",
+        link=entry_link,
+        org_name=org_name,
+        inviter=inviter_name,
+        note=note_text,
+    )
+    sent = _send_email(email, subject, text_body, html_body)
+
+    return {
+        "ok": True,
+        "sent": bool(sent),
+        "email": email,
+        "entry_link": entry_link,
+        "task_link": task_link,
+        "existing_user": bool(existing_user),
+        "role_label": role_label,
+        "kind_label": kind_label,
+    }
+
+
 @app.route("/signup", methods=["GET", "POST"])
 def ui_signup():
     if getattr(g, "user", None):
@@ -10671,6 +10757,9 @@ def ui_org_users():
     }
     if project_selected and project_id is not None:
         bulk_form["project_id"] = str(project_id)
+    org_obj = prj.get_organization(int(org_id)) or {}
+    org_name = (org_obj.get("name") or "").strip()
+    inviter_name = (user.get("full_name") or "").strip()
 
     def _bulk_norm_key(label: str) -> str:
         key = re.sub(r"[^a-z0-9]+", "", (label or "").strip().lower())
@@ -11073,6 +11162,33 @@ def ui_org_users():
                     status="ACTIVE",
                 )
                 msg = "Supervisor created."
+                supervisor_task_link = ""
+                if project_selected and project_id:
+                    try:
+                        next_path = url_for("ui_project_assignments", project_id=int(project_id))
+                        supervisor_task_link = url_for("ui_access", next=next_path, _external=True)
+                    except Exception:
+                        supervisor_task_link = ""
+                onboarding = _notify_member_onboarding(
+                    org_id=int(org_id),
+                    created_by_user_id=int(user.get("id")),
+                    inviter_name=inviter_name,
+                    org_name=org_name,
+                    member_email=email,
+                    invite_role="SUPERVISOR",
+                    member_kind="supervisor",
+                    member_name=full_name,
+                    access_key=access_key,
+                    task_link=supervisor_task_link,
+                )
+                if onboarding.get("ok"):
+                    if onboarding.get("sent"):
+                        msg += f" Notification sent to {html.escape(onboarding.get('email') or '')}."
+                    else:
+                        entry_link = onboarding.get("entry_link") or ""
+                        msg += " Email not configured on this server. Share this onboarding link manually: "
+                        if entry_link:
+                            msg += f"<a href='{html.escape(entry_link)}' target='_blank' rel='noopener'>Open invite</a>"
                 _log_audit(org_id, int(user.get("id")), "supervisor.created", "supervisor", None, {"email": email})
             elif action == "create_enumerator":
                 enum_project_id = request.form.get("project_id") or ""
@@ -11126,7 +11242,47 @@ def ui_org_users():
                     code_info = prj.ensure_assignment_code(int(enum_project_id), int(enumerator_id), int(assignment_id))
                 else:
                     code_info = prj.ensure_assignment_code_template(int(template_id), int(enumerator_id), int(assignment_id))
-                enum_msg = f"Enumerator created. Code: {code_info.get('code_full')}"
+                assign_code = (code_info.get("code_full") or "").strip()
+                task_link = ""
+                if template_id:
+                    try:
+                        token = ensure_share_token(int(template_id))
+                        task_link = url_for(
+                            "fill_form_project",
+                            project_id=int(internal_project_id),
+                            token=token,
+                            _external=True,
+                        ) + f"?assign_id={int(assignment_id)}"
+                    except Exception:
+                        task_link = ""
+                enum_msg = f"Enumerator created. Code: {html.escape(assign_code)}"
+                onboarding = _notify_member_onboarding(
+                    org_id=int(org_id),
+                    created_by_user_id=int(user.get("id")),
+                    inviter_name=inviter_name,
+                    org_name=org_name,
+                    member_email=email,
+                    invite_role="ANALYST",
+                    member_kind="enumerator",
+                    member_name=full_name,
+                    assignment_code=assign_code,
+                    task_link=task_link,
+                )
+                if onboarding.get("ok"):
+                    if onboarding.get("sent"):
+                        enum_msg += f" Notification sent to {html.escape(onboarding.get('email') or '')}."
+                    else:
+                        entry_link = onboarding.get("entry_link") or ""
+                        manual_links = []
+                        if entry_link:
+                            manual_links.append(
+                                f"<a href='{html.escape(entry_link)}' target='_blank' rel='noopener'>Invite link</a>"
+                            )
+                        if task_link:
+                            manual_links.append(
+                                f"<a href='{html.escape(task_link)}' target='_blank' rel='noopener'>Task link</a>"
+                            )
+                        enum_msg += " Email not configured on this server. Share manually: " + (" · ".join(manual_links) if manual_links else "Invite link")
                 _log_audit(
                     org_id,
                     int(user.get("id")),
@@ -11360,7 +11516,7 @@ def ui_org_users():
         <div class="muted">Send an invite link to a supervisor or analyst.</div>
         <span class="env-badge {'env-live' if smtp_ready else 'env-dev'}">{'Email: Connected' if smtp_ready else 'Email: Not configured'}</span>
       </div>
-      {("<div class='card' style='margin-top:10px;border-color: rgba(245, 158, 11, .35);'><b>Email not configured:</b> invites will generate a link you can share manually.</div>" if not smtp_ready else "")}
+      {("<div class='card' style='margin-top:10px;border-color: rgba(245, 158, 11, .35);'><b>Email not configured on Render:</b> copy and share invite links manually for now. Once SMTP is connected, invites are sent automatically.</div>" if not smtp_ready else "")}
       {(
         f"<div class='card' style='margin-top:10px; border-color: rgba(59, 130, 246, .35); display:flex; align-items:center; justify-content:space-between; gap:10px;'><div><b>Invite link ready:</b><div class='muted' style='font-size:12px; margin-top:4px; word-break:break-all;'>{html.escape(invite_link)}</div></div><button class='btn btn-sm' type='button' data-copy='{html.escape(invite_link)}'>Copy link</button></div>"
         if invite_link else ""
@@ -11389,7 +11545,7 @@ def ui_org_users():
     supervisors_block = f"""
     <div class="card" style="margin-top:16px">
       <h3 style="margin-top:0">Supervisors</h3>
-      <div class="muted">Create supervisor access keys and manage status.</div>
+      <div class="muted">Create supervisor access keys and send onboarding notice by email (or manual invite link if email is not configured).</div>
       <form method="POST" class="stack team-stack" style="margin-top:12px">
         <input type="hidden" name="action" value="create_supervisor" />
         <div class="team-form-grid">
@@ -11780,7 +11936,7 @@ def ui_org_users():
         <div class="team-card-head team-enum-head" style="gap:12px; flex-wrap:wrap;">
           <div>
             <h3 style="margin-bottom:4px;">Enumerators</h3>
-            <div class="muted">Add enumerators and assign them to a project/template flow.</div>
+            <div class="muted">Add enumerators, auto-generate assignment code, and send onboarding + task links to their email.</div>
           </div>
           <form method="GET" class="enum-select-form">
             {f"<input type='hidden' name='key' value='{ADMIN_KEY}' />" if ADMIN_KEY else ""}
