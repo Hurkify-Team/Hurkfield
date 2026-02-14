@@ -2746,8 +2746,8 @@ def ui_signup():
     </div>
     <div class="bg-white border border-violet-100 rounded-[28px] shadow-[0_26px_90px_-36px_rgba(124,58,237,0.48)] overflow-hidden grid lg:grid-cols-2">
       <div class="p-8 sm:p-10 text-white bg-gradient-to-br from-violet-700 via-fuchsia-600 to-indigo-600">
-        <a href="/" class="inline-flex items-center">
-          <img src="/static/logos/hurkfield-logo-tight.png" alt="HurkField logo" class="h-14 md:h-16 w-auto max-w-[280px] object-contain" />
+        <a href="/" class="inline-flex items-center rounded-2xl border border-white/50 bg-white/95 px-4 py-3 shadow-xl shadow-black/10">
+          <img src="/static/logos/hurkfield-logo-tight.png" alt="HurkField logo" class="h-16 md:h-20 w-auto max-w-[320px] object-contain" />
         </a>
         <h2 class="text-3xl sm:text-4xl font-extrabold mt-5 tracking-tight">Create your HurkField workspace</h2>
         <p class="text-white/90 mt-3 text-sm sm:text-base leading-relaxed">Set up a secure workspace to build forms, assign enumerators, and monitor submissions.</p>
@@ -2789,6 +2789,7 @@ def ui_signup():
         {social_html}
         <form method="POST" class="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
           <input type="hidden" name="oauth_flow" value="{1 if oauth_flow else 0}" />
+          <input type="hidden" name="email_signup" value="{1 if direct_email_signup else 0}" />
           <div class="grid md:grid-cols-2 gap-4">
             <div>
               <label class="text-xs font-semibold text-slate-600">Account type</label>
@@ -2894,6 +2895,7 @@ def ui_signup():
             <label class="flex items-center gap-2"><input type="checkbox" name="agree_privacy" /> I agree to the Privacy Policy</label>
           </div>
           <button class="mt-2 inline-flex w-full items-center justify-center rounded-2xl bg-violet-600 py-3 text-sm font-semibold tracking-wide text-white shadow-lg shadow-violet-300/60 transition hover:bg-violet-700 focus:outline-none focus:ring-4 focus:ring-violet-200" style="background:linear-gradient(135deg,#7C3AED,#8B5CF6);color:#fff;" type="submit">Create workspace</button>
+          {("<div class='text-xs text-slate-500'>After signup, we send a verification link to your email before first sign-in.</div>" if not oauth_flow else "")}
           <div class="text-xs text-slate-500 mt-2">Already have an account? <a class="font-semibold text-violet-700 hover:text-violet-800" href="/login">Sign in</a></div>
         </form>
       </div>
