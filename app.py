@@ -10710,13 +10710,20 @@ def ui_org_users():
     project_id = int(project_id) if str(project_id).isdigit() else None
     template_only_selected = project_id_raw == ""
     if request.method == "POST":
-        form_pid = request.form.get("project_id") or ""
-        if str(form_pid).isdigit():
-            project_id = int(form_pid)
-            template_only_selected = False
+        # Keep current project context for forms that do not post project_id
+        # (invite/resend/revoke/create supervisor), so they don't fall back to template-only.
+        if "project_id" in request.form:
+            form_pid = (request.form.get("project_id") or "").strip()
+            if str(form_pid).isdigit():
+                project_id = int(form_pid)
+                template_only_selected = False
+            else:
+                project_id = None
+                template_only_selected = True
         else:
-            project_id = None
-            template_only_selected = True
+            if project_id is None and projects:
+                project_id = int(projects[0].get("id"))
+                template_only_selected = False
     if project_id is None and projects and not template_only_selected:
         project_id = int(projects[0].get("id"))
     project_selected = project_id is not None
