@@ -10098,65 +10098,319 @@ def ui_profile():
     initials_src = (user.get("full_name") or user.get("email") or "OF").strip()
     user_initials = "".join([p[0] for p in initials_src.split()[:2]]).upper() or "OF"
     html_page = f"""
-    <div class="card" style="max-width:820px;margin:10px auto 0;">
-      <div class="row" style="justify-content:space-between; align-items:center;">
-        <div>
-          <div class="h2">Profile</div>
-          <div class="muted">Manage your account details and workspace identity.</div>
-        </div>
-        <div class="row" style="gap:8px;">
-          <a class="btn btn-sm" href="/ui{key_q}">Home</a>
-          <a class="btn btn-sm" href="/ui{key_q}">Back to dashboard</a>
+    <style>
+      .pf-page {{
+        min-height: 100vh;
+        background:
+          radial-gradient(900px 400px at -10% -18%, rgba(124,58,237,.14), transparent 62%),
+          radial-gradient(820px 360px at 112% -12%, rgba(139,92,246,.11), transparent 60%),
+          linear-gradient(180deg, #f8f6ff 0%, #f3f4f8 100%);
+        padding: 16px 0 30px;
+      }}
+      html[data-theme="dark"] .pf-page {{
+        background:
+          radial-gradient(900px 400px at -10% -18%, rgba(124,58,237,.28), transparent 62%),
+          radial-gradient(820px 360px at 112% -12%, rgba(139,92,246,.2), transparent 60%),
+          linear-gradient(180deg, #0f1221 0%, #11162a 100%);
+      }}
+      .pf-shell {{
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 16px;
+        display: grid;
+        gap: 14px;
+      }}
+      .pf-hero {{
+        border: 1px solid rgba(124,58,237,.28);
+        border-radius: 22px;
+        padding: 18px;
+        background: linear-gradient(120deg, rgba(124,58,237,.2) 0%, rgba(255,255,255,.97) 44%, rgba(224,231,255,.62) 100%);
+        box-shadow: 0 16px 36px rgba(15,18,34,.1);
+      }}
+      html[data-theme="dark"] .pf-hero {{
+        background: linear-gradient(120deg, rgba(124,58,237,.36) 0%, rgba(21,24,44,.95) 44%, rgba(35,40,71,.9) 100%);
+        border-color: rgba(167,139,250,.35);
+      }}
+      .pf-kicker {{
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(124,58,237,.14);
+        color: var(--primary);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+      }}
+      .pf-title {{
+        margin: 10px 0 4px;
+        font-size: 30px;
+        font-weight: 900;
+        letter-spacing: -.02em;
+        color: #111827;
+      }}
+      html[data-theme="dark"] .pf-title {{ color: #f8fafc; }}
+      .pf-sub {{
+        color: #475569;
+        font-size: 14px;
+      }}
+      html[data-theme="dark"] .pf-sub {{ color: #cbd5e1; }}
+      .pf-actions {{
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }}
+      .pf-grid {{
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+        gap: 14px;
+      }}
+      .pf-card {{
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: 0 12px 28px rgba(15,18,34,.06);
+      }}
+      .pf-alert-ok {{
+        border: 1px solid rgba(34,197,94,.35);
+        background: rgba(240,253,244,.9);
+        color: #166534;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 13px;
+        margin-bottom: 12px;
+      }}
+      .pf-alert-err {{
+        border: 1px solid rgba(239,68,68,.35);
+        background: rgba(254,242,242,.9);
+        color: #991b1b;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 13px;
+        margin-bottom: 12px;
+      }}
+      .pf-avatar-wrap {{
+        position: relative;
+        width: 96px;
+        height: 96px;
+        border-radius: 22px;
+        overflow: hidden;
+        border: 1px solid rgba(124,58,237,.26);
+        background: var(--surface-2);
+        display: grid;
+        place-items: center;
+        font-weight: 900;
+        font-size: 20px;
+        color: var(--muted);
+        box-shadow: 0 12px 26px rgba(124,58,237,.22);
+      }}
+      .pf-avatar-wrap img {{
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }}
+      .pf-image-pick {{
+        position: absolute;
+        right: -3px;
+        bottom: -3px;
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        border: 1px solid rgba(124,58,237,.42);
+        background: var(--primary);
+        color: #fff;
+        font-weight: 900;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+      }}
+      .pf-form label {{
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }}
+      .pf-form input:not([type="hidden"]),
+      .pf-form textarea,
+      .pf-form select {{
+        width: 100%;
+        border: 1px solid rgba(124,58,237,.24);
+        border-radius: 12px;
+        background: linear-gradient(180deg, #ffffff 0%, #f7f7fb 100%);
+        color: var(--text);
+        padding: 11px 12px;
+        font-size: 14px;
+      }}
+      html[data-theme="dark"] .pf-form input:not([type="hidden"]),
+      html[data-theme="dark"] .pf-form textarea,
+      html[data-theme="dark"] .pf-form select {{
+        background: linear-gradient(180deg, rgba(30,41,59,.92) 0%, rgba(17,24,39,.92) 100%);
+        border-color: rgba(167,139,250,.3);
+        color: #e5e7eb;
+      }}
+      .pf-form input:focus,
+      .pf-form textarea:focus,
+      .pf-form select:focus {{
+        outline: none;
+        border-color: rgba(124,58,237,.72);
+        box-shadow: 0 0 0 4px rgba(124,58,237,.14);
+      }}
+      .pf-row-2 {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }}
+      .pf-side-title {{
+        margin: 0 0 12px;
+        font-size: 15px;
+        font-weight: 800;
+      }}
+      .pf-metric {{
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        border-radius: 12px;
+        padding: 10px 12px;
+      }}
+      .pf-metric .k {{
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        font-weight: 800;
+        letter-spacing: .06em;
+      }}
+      .pf-metric .v {{
+        font-size: 14px;
+        font-weight: 800;
+        margin-top: 4px;
+      }}
+      .pf-links {{
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }}
+      .pf-link {{
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        padding: 10px 12px;
+        color: var(--text);
+        font-weight: 700;
+      }}
+      .pf-link:hover {{
+        border-color: rgba(124,58,237,.45);
+        color: var(--primary);
+      }}
+      @media (max-width: 980px) {{
+        .pf-grid {{ grid-template-columns: 1fr; }}
+      }}
+      @media (max-width: 760px) {{
+        .pf-title {{ font-size: 24px; }}
+        .pf-row-2 {{ grid-template-columns: 1fr; }}
+      }}
+    </style>
+
+    <div class="pf-page">
+      <div class="pf-shell">
+        <section class="pf-hero">
+          <div class="row" style="justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
+            <div>
+              <div class="pf-kicker">Account profile</div>
+              <h1 class="pf-title">View profile</h1>
+              <div class="pf-sub">Manage your account details, profile image, and workspace identity in one place.</div>
+            </div>
+            <div class="pf-actions">
+              <a class="btn btn-sm" href="/ui{key_q}">Home</a>
+              <a class="btn btn-sm" href="/ui{key_q}">Back to dashboard</a>
+            </div>
+          </div>
+        </section>
+
+        <div class="pf-grid">
+          <section class="pf-card">
+            {f"<div class='pf-alert-ok'><b>Success:</b> {msg_html}</div>" if msg else ""}
+            {f"<div class='pf-alert-err'><b>Error:</b> {err_html}</div>" if err else ""}
+
+            <form method="POST" class="stack pf-form" enctype="multipart/form-data">
+              <div class="row" style="gap:14px; align-items:center; flex-wrap:wrap;">
+                <div class="pf-avatar-wrap">
+                  {f"<img id='profileImagePreview' src='{user_image_url}' alt='Profile photo' />" if user_image_url else f"<span id='profileImagePreview'>{html.escape(user_initials[:2])}</span>"}
+                  <button type="button" id="profileImagePick" class="pf-image-pick" aria-label="Upload profile photo" title="Upload profile photo">+</button>
+                </div>
+                <div style="flex:1; min-width:240px">
+                  <label>Profile photo</label>
+                  <input id="profileImageInput" type="file" name="profile_image" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" />
+                  <div class="muted" style="font-size:12px;">Click + to upload PNG, JPG, WEBP, or GIF.</div>
+                </div>
+              </div>
+
+              <div class="pf-row-2">
+                <div>
+                  <label>Full name</label>
+                  <input name="full_name" value="{html.escape(user.get('full_name') or '')}" required />
+                </div>
+                <div>
+                  <label>Work email</label>
+                  <input value="{html.escape(user.get('email') or '')}" disabled />
+                </div>
+              </div>
+
+              <div class="pf-row-2">
+                <div>
+                  <label>Role / title</label>
+                  <input name="title" value="{html.escape(user.get('title') or '')}" placeholder="e.g., Research Lead" />
+                </div>
+                <div>
+                  <label>Phone</label>
+                  <input name="phone" value="{html.escape(user.get('phone') or '')}" placeholder="+234..." />
+                </div>
+              </div>
+
+              <div>
+                <label>Workspace name</label>
+                <input name="org_name" value="{html.escape(org_name_val)}" placeholder="Organization or team name" />
+                <div class="muted" style="font-size:12px;margin-top:6px;">This name appears across your workspace and invites.</div>
+              </div>
+
+              <div class="row" style="justify-content:space-between; align-items:center; gap:10px; margin-top:4px;">
+                <a class="btn" href="/logout">Log out</a>
+                <button class="btn btn-primary" type="submit">Save changes</button>
+              </div>
+            </form>
+          </section>
+
+          <aside class="pf-card">
+            <h3 class="pf-side-title">Account summary</h3>
+            <div class="stack" style="gap:8px;">
+              <div class="pf-metric">
+                <div class="k">Role</div>
+                <div class="v">{html.escape((user.get("role") or "Member").upper())}</div>
+              </div>
+              <div class="pf-metric">
+                <div class="k">Workspace</div>
+                <div class="v">{html.escape(org_name_val or "—")}</div>
+              </div>
+              <div class="pf-metric">
+                <div class="k">Joined</div>
+                <div class="v">{html.escape(user.get("created_at") or "—")}</div>
+              </div>
+            </div>
+
+            <div class="pf-links">
+              <a class="pf-link" href="/ui/settings/security{key_q}">Security settings</a>
+              <a class="pf-link" href="/ui/settings/sessions{key_q}">Sessions & devices</a>
+              <a class="pf-link" href="/ui/org/users{key_q}">Team members</a>
+            </div>
+          </aside>
         </div>
       </div>
     </div>
 
-    <div class="card" style="max-width:820px;margin:16px auto 0;">
-      {f"<div class='card' style='border-color: rgba(46, 204, 113, .35);margin-bottom:12px'>{msg_html}</div>" if msg else ""}
-      {f"<div class='card' style='border-color: rgba(231, 76, 60, .35);margin-bottom:12px'><b>Error:</b> {err_html}</div>" if err else ""}
-      <form method="POST" class="stack" enctype="multipart/form-data">
-        <div class="row" style="gap:14px; align-items:center;">
-          <div style="position:relative;width:80px;height:80px;border-radius:18px;overflow:hidden;border:1px solid var(--border);background:var(--surface-2);display:grid;place-items:center;font-weight:800;color:var(--muted);box-shadow:0 10px 24px rgba(124,58,237,.18);">
-            {f"<img id='profileImagePreview' src='{user_image_url}' alt='Profile photo' style='width:100%;height:100%;object-fit:cover;' />" if user_image_url else f"<span id='profileImagePreview' style='font-weight:900;font-size:18px'>{html.escape(user_initials[:2])}</span>"}
-            <button type="button" id="profileImagePick" aria-label="Upload profile photo" title="Upload profile photo" style="position:absolute;right:-4px;bottom:-4px;width:32px;height:32px;border-radius:12px;border:1px solid rgba(124,58,237,.35);background:var(--primary);color:#fff;font-weight:900;font-size:20px;line-height:1;cursor:pointer;box-shadow:0 10px 18px rgba(124,58,237,.35);">+</button>
-          </div>
-          <div style="flex:1; min-width:240px">
-            <label style="font-weight:800">Profile photo</label>
-            <input id="profileImageInput" type="file" name="profile_image" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" />
-            <div class="muted" style="font-size:12px;margin-top:6px;">Click the + icon to choose PNG, JPG, WEBP, or GIF.</div>
-          </div>
-        </div>
-        <div class="row" style="gap:12px; flex-wrap:wrap;">
-          <div style="flex:1; min-width:240px">
-            <label style="font-weight:800">Full name</label>
-            <input name="full_name" value="{html.escape(user.get('full_name') or '')}" required />
-          </div>
-          <div style="flex:1; min-width:240px">
-            <label style="font-weight:800">Work email</label>
-            <input value="{html.escape(user.get('email') or '')}" disabled />
-          </div>
-        </div>
-        <div class="row" style="gap:12px; flex-wrap:wrap;">
-          <div style="flex:1; min-width:240px">
-            <label style="font-weight:800">Role / Title</label>
-            <input name="title" value="{html.escape(user.get('title') or '')}" placeholder="e.g., Research Lead" />
-          </div>
-          <div style="flex:1; min-width:240px">
-            <label style="font-weight:800">Phone</label>
-            <input name="phone" value="{html.escape(user.get('phone') or '')}" placeholder="+234..." />
-          </div>
-        </div>
-        <div>
-          <label style="font-weight:800">Workspace name</label>
-          <input name="org_name" value="{html.escape(org_name_val)}" placeholder="Organization or team name" />
-          <div class="muted" style="font-size:12px;margin-top:6px;">This name appears in your dashboard welcome.</div>
-        </div>
-        <div class="row" style="justify-content:space-between; align-items:center;">
-          <a class="btn" href="/logout">Log out</a>
-          <button class="btn btn-primary" type="submit">Save changes</button>
-        </div>
-      </form>
-    </div>
     <script>
       (function () {{
         const pick = document.getElementById("profileImagePick");
@@ -10175,9 +10429,6 @@ def ui_profile():
           const img = document.createElement("img");
           img.id = "profileImagePreview";
           img.alt = "Profile photo";
-          img.style.width = "100%";
-          img.style.height = "100%";
-          img.style.objectFit = "cover";
           img.src = url;
           preview.replaceWith(img);
         }});
@@ -11581,7 +11832,7 @@ def ui_org_users():
         project_selector_options.append(f"<option value='{pid}' {sel}>{html.escape(p.get('name') or 'Project')}</option>")
 
     invite_block = f"""
-    <div class="card" style="margin-top:16px">
+    <div class="card team-section" style="margin-top:16px">
       <h3 style="margin-top:0">Invite teammate</h3>
       <div class="team-card-head">
         <div class="muted">Send an invite link to a supervisor or analyst.</div>
@@ -11614,7 +11865,7 @@ def ui_org_users():
     """ if project_selected else ""
 
     supervisors_block = f"""
-    <div class="card" style="margin-top:16px">
+    <div class="card team-section" style="margin-top:16px">
       <h3 style="margin-top:0">Supervisors</h3>
       <div class="muted">Create supervisor access keys and send onboarding notice by email (or manual invite link if email is not configured).</div>
       <form method="POST" class="stack team-stack" style="margin-top:12px">
@@ -11643,7 +11894,7 @@ def ui_org_users():
           </div>
         </div>
       </form>
-      <div style="margin-top:12px">
+      <div class="team-table-wrap" style="margin-top:12px">
         <table class="table">
           <thead>
             <tr>
@@ -11662,7 +11913,7 @@ def ui_org_users():
       </div>
     </div>
     """ if project_selected else """
-    <div class="card" style="margin-top:16px">
+    <div class="card team-section" style="margin-top:16px">
       <h3 style="margin-top:0">Supervisors & Analysts</h3>
       <div class="muted">Select a project to manage supervisors and analysts for that project.</div>
     </div>
@@ -11698,7 +11949,7 @@ def ui_org_users():
                 f"<td>{html.escape(r.get('detail') or '')}</td></tr>"
             )
         bulk_preview_block = (
-            "<div style='margin-top:12px'><table class='table'><thead><tr><th style=\"width:80px\">Line</th><th>Name</th><th>Email</th><th style=\"width:140px\">Result</th><th>Detail</th></tr></thead><tbody>"
+            "<div class='team-table-wrap' style='margin-top:12px'><table class='table'><thead><tr><th style=\"width:80px\">Line</th><th>Name</th><th>Email</th><th style=\"width:140px\">Result</th><th>Detail</th></tr></thead><tbody>"
             + "".join(preview_rows_html)
             + "</tbody></table>"
             + ("<div class='muted' style='margin-top:8px'>Showing first 120 rows.</div>" if len(bulk_preview_rows) > 120 else "")
@@ -11706,7 +11957,7 @@ def ui_org_users():
         )
 
     bulk_block = f"""
-    <div class="card" style="margin-top:16px">
+    <div class="card team-section" style="margin-top:16px">
       <h3 style="margin-top:0">Bulk import team members</h3>
       <div class="muted">Upload CSV or paste lines to create many supervisors/enumerators at once.</div>
       {("<div class='team-alert-success' style='margin-top:10px'><b>Success:</b> " + html.escape(bulk_msg) + "</div>" if bulk_msg else "")}
@@ -11761,7 +12012,8 @@ def ui_org_users():
     """
 
     members_block = f"""
-    <div class="card" style="margin-top:16px">
+    <div class="card team-section" style="margin-top:16px">
+      <div class="team-table-wrap">
       <table class="table">
         <thead>
           <tr>
@@ -11778,11 +12030,13 @@ def ui_org_users():
           {("".join(rows) if rows else "<tr><td colspan='7' class='muted' style='padding:18px'>No users yet.</td></tr>")}
         </tbody>
       </table>
+      </div>
       <div class="muted" style="margin-top:10px">Analysts are read‑only. Owners can approve pending users.</div>
     </div>
 
-    <div class="card" style="margin-top:16px">
+    <div class="card team-section" style="margin-top:16px">
       <h3 style="margin-top:0">Pending invites</h3>
+      <div class="team-table-wrap">
       <table class="table">
         <thead>
           <tr>
@@ -11798,6 +12052,7 @@ def ui_org_users():
           {("".join(invite_rows) if invite_rows else "<tr><td colspan='6' class='muted' style='padding:18px'>No invites yet.</td></tr>")}
         </tbody>
       </table>
+      </div>
     </div>
     """ if project_selected else ""
 
@@ -11808,6 +12063,17 @@ def ui_org_users():
         margin: 0 auto;
         display: grid;
         gap: 16px;
+      }}
+      .team-layout {{
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
+        gap: 16px;
+      }}
+      .team-col-main,
+      .team-col-side {{
+        display: grid;
+        gap: 16px;
+        align-content: start;
       }}
       .team-hero {{
         border: 1px solid rgba(124,58,237,.16);
@@ -11842,6 +12108,17 @@ def ui_org_users():
         background: linear-gradient(180deg, #ffffff, #fbfbff);
         box-shadow: 0 16px 34px -28px rgba(15,23,42,.35);
         padding: 16px;
+      }}
+      .team-section {{
+        position: relative;
+      }}
+      .team-section::after {{
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 20px;
+        pointer-events: none;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
       }}
       .team-shell h3 {{
         margin-top: 0;
@@ -11928,6 +12205,9 @@ def ui_org_users():
         border-radius: 14px;
         overflow: hidden;
       }}
+      .team-table-wrap {{
+        overflow: auto;
+      }}
       .team-shell .table thead th {{
         background: #f8f8ff;
         border-bottom: 1px solid rgba(148,163,184,.2);
@@ -11967,6 +12247,9 @@ def ui_org_users():
       }}
       @media (max-width: 900px) {{
         .team-title {{ font-size: 24px; }}
+        .team-layout {{
+          grid-template-columns: 1fr;
+        }}
         .team-card-head {{
           align-items: flex-start;
           flex-direction: column;
@@ -11999,11 +12282,17 @@ def ui_org_users():
       {"<div class='team-alert-success'><b>Success:</b> " + msg + "</div>" if msg else ""}
       {"<div class='team-alert-error'><b>Error:</b> " + err + "</div>" if err else ""}
 
-      {invite_block}
-      {supervisors_block}
-      {bulk_block}
+      <section class="team-layout">
+        <div class="team-col-main">
+          {invite_block}
+          {bulk_block}
+        </div>
+        <div class="team-col-side">
+          {supervisors_block}
+        </div>
+      </section>
 
-      <div class="card">
+      <div class="card team-section">
         <div class="team-card-head team-enum-head" style="gap:12px; flex-wrap:wrap;">
           <div>
             <h3 style="margin-bottom:4px;">Enumerators</h3>
@@ -12059,7 +12348,7 @@ def ui_org_users():
             <button class="btn btn-primary" type="submit">Create enumerator</button>
           </div>
         </form>
-        <div style="margin-top:12px">
+        <div class="team-table-wrap" style="margin-top:12px">
           {(
             "<table class='table'><thead><tr><th style=\"width:90px\">ID</th><th>Enumerator</th><th style=\"width:200px\">Template</th><th style=\"width:200px\">Assignment code</th><th style=\"width:140px\">Target</th><th style=\"width:160px\">Created</th><th style=\"width:140px\">Actions</th></tr></thead><tbody>" + "".join(enum_rows) + "</tbody></table>"
             if enum_rows else "<div class='muted' style='padding:8px 0'>No enumerators yet.</div>"
