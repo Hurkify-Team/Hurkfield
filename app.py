@@ -74,6 +74,8 @@ ADMIN_KEY = config.ADMIN_KEY
 ENABLE_SERVER_DRAFTS = config.ENABLE_SERVER_DRAFTS
 DRAFTS_TABLE = config.DRAFTS_TABLE
 
+EMAIL_LAST_ERROR = ""
+
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.permanent_session_lifetime = timedelta(days=30)
@@ -2544,7 +2546,10 @@ def _mark_token_used(token_id: int):
 
 
 def _send_email(to_email: str, subject: str, body: str, html_body: str | None = None) -> bool:
+    global EMAIL_LAST_ERROR
+    EMAIL_LAST_ERROR = ""
     if not SMTP_HOST or not SMTP_FROM:
+        EMAIL_LAST_ERROR = "SMTP is not fully configured (missing host or from address)."
         return False
     try:
         import smtplib
@@ -2565,8 +2570,13 @@ def _send_email(to_email: str, subject: str, body: str, html_body: str | None = 
                 server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
         return True
-    except Exception:
+    except Exception as e:
+        EMAIL_LAST_ERROR = f"{e.__class__.__name__}: {str(e)}".strip()
         return False
+
+
+def _last_email_error() -> str:
+    return (EMAIL_LAST_ERROR or "").strip()
 
 
 def _email_template(kind: str, **ctx):
@@ -2768,6 +2778,7 @@ def _notify_member_onboarding(
         note=note_text,
     )
     sent = _send_email(email, subject, text_body, html_body)
+    email_error = _last_email_error()
 
     return {
         "ok": True,
@@ -2778,6 +2789,7 @@ def _notify_member_onboarding(
         "existing_user": bool(existing_user),
         "role_label": role_label,
         "kind_label": kind_label,
+        "email_error": email_error,
     }
 
 
@@ -11095,7 +11107,7 @@ def ui_org_users():
                 if sent:
                     msg = f"Invite sent to {invite_email}."
                 else:
-                    reason = "SMTP not configured" if not smtp_ready else "Email delivery failed"
+                    reason = "SMTP not configured" if not smtp_ready else ("Email delivery failed: " + (_last_email_error() or "unknown SMTP error"))
                     msg = f"{reason}. Share this invite link: {invite_url}"
                     invite_link = invite_url
                 _log_audit(org_id, int(user.get("id")), "user.invite.created", "invite", None, {"email": invite_email, "role": invite_role})
@@ -11135,7 +11147,8 @@ def ui_org_users():
                 if sent:
                     msg = "Invite resent."
                 else:
-                    msg = f"Email delivery failed. Share this invite link: {invite_url}"
+                    reason = _last_email_error() or "unknown SMTP error"
+                    msg = f"Email delivery failed: {reason}. Share this invite link: {invite_url}"
                     invite_link = invite_url
                 _log_audit(org_id, int(user.get("id")), "user.invite.resent", "invite", invite_id, {"email": inv.get("email")})
             elif action == "invite_revoke":
@@ -11192,8 +11205,9 @@ def ui_org_users():
                     if onboarding.get("sent"):
                         msg += f" Notification sent to {html.escape(onboarding.get('email') or '')}."
                     else:
+                        email_reason = onboarding.get("email_error") or ("SMTP not configured" if not smtp_ready else "email delivery failed")
                         entry_link = onboarding.get("entry_link") or ""
-                        msg += " Email not configured on this server. Share this onboarding link manually: "
+                        msg += " Notification email failed (" + html.escape(str(email_reason)) + "). Share this onboarding link manually: "
                         if entry_link:
                             msg += f"<a href='{html.escape(entry_link)}' target='_blank' rel='noopener'>Open invite</a>"
                 _log_audit(org_id, int(user.get("id")), "supervisor.created", "supervisor", None, {"email": email})
@@ -11279,6 +11293,7 @@ def ui_org_users():
                     if onboarding.get("sent"):
                         enum_msg += f" Notification sent to {html.escape(onboarding.get('email') or '')}."
                     else:
+                        email_reason = onboarding.get("email_error") or ("SMTP not configured" if not smtp_ready else "email delivery failed")
                         entry_link = onboarding.get("entry_link") or ""
                         manual_links = []
                         if entry_link:
@@ -11289,7 +11304,7 @@ def ui_org_users():
                             manual_links.append(
                                 f"<a href='{html.escape(task_link)}' target='_blank' rel='noopener'>Task link</a>"
                             )
-                        enum_msg += " Email not configured on this server. Share manually: " + (" · ".join(manual_links) if manual_links else "Invite link")
+                        enum_msg += " Notification email failed (" + html.escape(str(email_reason)) + "). Share manually: " + (" · ".join(manual_links) if manual_links else "Invite link")
                 _log_audit(
                     org_id,
                     int(user.get("id")),
