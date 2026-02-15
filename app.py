@@ -11838,9 +11838,9 @@ def ui_org_users():
         <div class="muted">Send an invite link to a supervisor or analyst.</div>
         <span class="env-badge {'env-live' if smtp_ready else 'env-dev'}">{'Email: Connected' if smtp_ready else 'Email: Not configured'}</span>
       </div>
-      {("<div class='card' style='margin-top:10px;border-color: rgba(245, 158, 11, .35);'><b>Email not configured:</b> configure either SMTP or Resend API on Render. Until then, copy and share invite links manually.</div>" if not smtp_ready else "")}
+      {("<div class='team-note warn' style='margin-top:10px;'><b>Email not configured:</b> configure either SMTP or Resend API on Render. Until then, copy and share invite links manually.</div>" if not smtp_ready else "")}
       {(
-        f"<div class='card' style='margin-top:10px; border-color: rgba(59, 130, 246, .35); display:flex; align-items:center; justify-content:space-between; gap:10px;'><div><b>Invite link ready:</b><div class='muted' style='font-size:12px; margin-top:4px; word-break:break-all;'>{html.escape(invite_link)}</div></div><button class='btn btn-sm' type='button' data-copy='{html.escape(invite_link)}'>Copy link</button></div>"
+        f"<div class='team-note info' style='margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:10px;'><div><b>Invite link ready:</b><div class='muted' style='font-size:12px; margin-top:4px; word-break:break-all;'>{html.escape(invite_link)}</div></div><button class='btn btn-sm' type='button' data-copy='{html.escape(invite_link)}'>Copy link</button></div>"
         if invite_link else ""
       )}
       <form method="POST" class="team-form-grid team-form-grid-3" style="margin-top:12px;">
@@ -12011,8 +12011,9 @@ def ui_org_users():
     </div>
     """
 
-    members_block = f"""
+    members_users_block = f"""
     <div class="card team-section" style="margin-top:16px">
+      <h3 style="margin-top:0">Workspace users</h3>
       <div class="team-table-wrap">
       <table class="table">
         <thead>
@@ -12033,7 +12034,8 @@ def ui_org_users():
       </div>
       <div class="muted" style="margin-top:10px">Analysts are read‑only. Owners can approve pending users.</div>
     </div>
-
+    """ if project_selected else ""
+    members_invites_block = f"""
     <div class="card team-section" style="margin-top:16px">
       <h3 style="margin-top:0">Pending invites</h3>
       <div class="team-table-wrap">
@@ -12119,6 +12121,23 @@ def ui_org_users():
         border-radius: 20px;
         pointer-events: none;
         box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+      }}
+      .team-note {{
+        border-radius: 12px;
+        padding: 11px 12px;
+        font-size: 13px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+      }}
+      .team-note.warn {{
+        border-color: rgba(245, 158, 11, .35);
+        background: rgba(255, 247, 237, .92);
+        color: #92400e;
+      }}
+      .team-note.info {{
+        border-color: rgba(59, 130, 246, .35);
+        background: rgba(239, 246, 255, .92);
+        color: #1e3a8a;
       }}
       .team-shell h3 {{
         margin-top: 0;
@@ -12356,7 +12375,10 @@ def ui_org_users():
         </div>
       </div>
 
-      {members_block}
+      {(
+        "<section class='team-layout'><div class='team-col-main'>" + members_users_block + "</div><div class='team-col-side'>" + members_invites_block + "</div></section>"
+        if project_selected else ""
+      )}
     </div>
     <script>
       (function(){{
