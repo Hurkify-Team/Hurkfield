@@ -100,6 +100,9 @@ SMTP_USER = _env("OPENFIELD_SMTP_USER", "")
 SMTP_PASS = _env("OPENFIELD_SMTP_PASS", "")
 SMTP_TLS = _env_bool("OPENFIELD_SMTP_TLS", True)
 SMTP_FROM = _env("OPENFIELD_SMTP_FROM", "no-reply@openfield.local")
+EMAIL_PROVIDER = _env("OPENFIELD_EMAIL_PROVIDER", "smtp").strip().lower() or "smtp"
+RESEND_API_KEY = _env("OPENFIELD_RESEND_API_KEY", "").strip()
+RESEND_API_BASE = (_env("OPENFIELD_RESEND_API_BASE", "https://api.resend.com").strip() or "https://api.resend.com").rstrip("/")
 
 # Audio transcription (supports OPENFIELD_* and HURKFIELD_* aliases)
 TRANSCRIBE_PROVIDER = _env(

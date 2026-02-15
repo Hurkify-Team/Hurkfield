@@ -60,6 +60,9 @@ SMTP_USER = config.SMTP_USER
 SMTP_PASS = config.SMTP_PASS
 SMTP_TLS = config.SMTP_TLS
 SMTP_FROM = config.SMTP_FROM
+EMAIL_PROVIDER = config.EMAIL_PROVIDER
+RESEND_API_KEY = config.RESEND_API_KEY
+RESEND_API_BASE = config.RESEND_API_BASE
 TRANSCRIBE_PROVIDER = config.TRANSCRIBE_PROVIDER
 TRANSCRIBE_OPENAI_KEY = config.TRANSCRIBE_OPENAI_KEY
 TRANSCRIBE_MODEL = config.TRANSCRIBE_MODEL
@@ -2548,6 +2551,48 @@ def _mark_token_used(token_id: int):
 def _send_email(to_email: str, subject: str, body: str, html_body: str | None = None) -> bool:
     global EMAIL_LAST_ERROR
     EMAIL_LAST_ERROR = ""
+    provider = (EMAIL_PROVIDER or "smtp").strip().lower()
+
+    # HTTP email API path (recommended on Render free plan where SMTP ports are blocked).
+    if provider == "resend":
+        if not RESEND_API_KEY:
+            EMAIL_LAST_ERROR = "Resend provider selected but OPENFIELD_RESEND_API_KEY is missing."
+            return False
+        if not SMTP_FROM:
+            EMAIL_LAST_ERROR = "OPENFIELD_SMTP_FROM is required for Resend sender address."
+            return False
+        try:
+            payload = {
+                "from": SMTP_FROM,
+                "to": [to_email],
+                "subject": subject,
+                "text": body or "",
+            }
+            if html_body:
+                payload["html"] = html_body
+            resp = requests.post(
+                f"{RESEND_API_BASE}/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=20,
+            )
+            if resp.status_code in (200, 201, 202):
+                return True
+            try:
+                err_obj = resp.json()
+                err_msg = err_obj.get("message") or err_obj.get("error") or str(err_obj)
+            except Exception:
+                err_msg = (resp.text or "").strip()[:300]
+            EMAIL_LAST_ERROR = f"Resend API {resp.status_code}: {err_msg}"
+            return False
+        except Exception as e:
+            EMAIL_LAST_ERROR = f"{e.__class__.__name__}: {str(e)}".strip()
+            return False
+
+    # Default SMTP path.
     if not SMTP_HOST or not SMTP_FROM:
         EMAIL_LAST_ERROR = "SMTP is not fully configured (missing host or from address)."
         return False
@@ -10709,7 +10754,11 @@ def ui_org_users():
 
     role = (user.get("role") or "").upper()
     can_manage_team = role in ("OWNER", "SUPERVISOR")
-    smtp_ready = bool(SMTP_HOST and SMTP_FROM)
+    email_provider = (EMAIL_PROVIDER or "smtp").strip().lower()
+    smtp_ready = bool(
+        (email_provider == "resend" and RESEND_API_KEY and SMTP_FROM)
+        or (email_provider != "resend" and SMTP_HOST and SMTP_FROM)
+    )
     msg = ""
     err = ""
     invite_link = ""
@@ -11538,7 +11587,7 @@ def ui_org_users():
         <div class="muted">Send an invite link to a supervisor or analyst.</div>
         <span class="env-badge {'env-live' if smtp_ready else 'env-dev'}">{'Email: Connected' if smtp_ready else 'Email: Not configured'}</span>
       </div>
-      {("<div class='card' style='margin-top:10px;border-color: rgba(245, 158, 11, .35);'><b>Email not configured on Render:</b> copy and share invite links manually for now. Once SMTP is connected, invites are sent automatically.</div>" if not smtp_ready else "")}
+      {("<div class='card' style='margin-top:10px;border-color: rgba(245, 158, 11, .35);'><b>Email not configured:</b> configure either SMTP or Resend API on Render. Until then, copy and share invite links manually.</div>" if not smtp_ready else "")}
       {(
         f"<div class='card' style='margin-top:10px; border-color: rgba(59, 130, 246, .35); display:flex; align-items:center; justify-content:space-between; gap:10px;'><div><b>Invite link ready:</b><div class='muted' style='font-size:12px; margin-top:4px; word-break:break-all;'>{html.escape(invite_link)}</div></div><button class='btn btn-sm' type='button' data-copy='{html.escape(invite_link)}'>Copy link</button></div>"
         if invite_link else ""
