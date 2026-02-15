@@ -3567,7 +3567,7 @@ def accept_invite():
     token = (request.args.get("token") or request.form.get("token") or "").strip()
     invite = _get_invite(token)
     if not invite:
-        return ui_shell("Invite", "<div class='card'><h2>Invalid or expired invite</h2></div>", show_project_switcher=False), 400
+        return ui_shell("Invite", "<div class='card'><h2>Invalid or expired invite</h2></div>", show_project_switcher=False, show_nav=False), 400
 
     err = ""
     if request.method == "POST":
@@ -3610,6 +3610,7 @@ def accept_invite():
                 "Invite accepted",
                 "<div class='card'><h2>Welcome!</h2><div class='muted'>Your account is ready. You can now sign in.</div><a class='btn btn-primary' href='/login'>Sign in</a></div>",
                 show_project_switcher=False,
+                show_nav=False,
             )
         except Exception as e:
             err = str(e)
@@ -3631,7 +3632,7 @@ def accept_invite():
       </form>
     </div>
     """
-    return ui_shell("Accept Invite", html_page, show_project_switcher=False)
+    return ui_shell("Accept Invite", html_page, show_project_switcher=False, show_nav=False)
 
 
 @app.route("/ui/audit")
@@ -11871,25 +11872,23 @@ def ui_org_users():
       <form method="POST" class="stack team-stack" style="margin-top:12px">
         <input type="hidden" name="action" value="create_supervisor" />
         <div class="team-form-grid">
-          <div class="team-col-4">
+          <div class="team-col-12">
             <label style="font-weight:800">Full name</label>
             <input name="full_name" placeholder="Supervisor name" />
           </div>
-          <div class="team-col-4">
+          <div class="team-col-12">
             <label style="font-weight:800">Email</label>
             <input name="email" placeholder="email@example.com" />
           </div>
-          <div class="team-col-4">
+          <div class="team-col-12">
             <label style="font-weight:800">Phone</label>
             <input name="phone" placeholder="Phone" />
           </div>
-        </div>
-        <div class="team-form-grid">
-          <div class="team-col-6">
+          <div class="team-col-12">
             <label style="font-weight:800">Access key (auto-generated)</label>
             <input name="access_key" placeholder="Auto-generated" disabled />
           </div>
-          <div class="team-col-6 team-align-end">
+          <div class="team-col-12 team-align-end">
             <button class="btn btn-primary" type="submit">Create supervisor</button>
           </div>
         </div>
@@ -12376,7 +12375,7 @@ def ui_org_users():
       </div>
 
       {(
-        "<section class='team-layout'><div class='team-col-main'>" + members_users_block + "</div><div class='team-col-side'>" + members_invites_block + "</div></section>"
+        members_users_block + members_invites_block
         if project_selected else ""
       )}
     </div>
